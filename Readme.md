@@ -22,4 +22,8 @@ It showed that the size of the test set is very important to generalize.
 
 ### Compile tensorflow for faster processing
 
+Compiled tensorflow from source because this is supposed to speed up some  operations.
+Improvement was only about 10%. It seems like the speed up is manly in special operations
+for image processing/detection problems.
+
 
