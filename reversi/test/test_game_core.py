@@ -723,6 +723,95 @@ class TestMoveExecution(unittest.TestCase):
                            [PLAYER_SEVEN, PLAYER_TWO, PLAYER_FOUR],
                            [PLAYER_TWO, PLAYER_EIGHT, PLAYER_ONE]])
 
+    def test_get_possible_moves_bomb_zero(self):
+        board = Board("""\
+        2
+        0
+        2 0
+        3 3
+        0 1 0
+        0 2 0
+        0 0 0
+        """)
+        game = GameState(board)
+        game.bomb_phase = True
+
+        next_game_states = game.get_possible_bomb_move_on_position((1, 1), player=PLAYER_ONE)
+        self.assertEqual(1, len(next_game_states))
+        self.assert_board(next_game_states[0].board,
+                          [[EMPTY, PLAYER_ONE, EMPTY],
+                           [EMPTY, HOLE, EMPTY],
+                           [EMPTY, EMPTY, EMPTY]])
+        self.assertEqual(next_game_states[0].player_bombs[PLAYER_ONE], 1)
+        self.assertEqual(next_game_states[0].player_bombs[PLAYER_TWO], 2)
+
+    def test_get_possible_moves_bomb_one(self):
+        board = Board("""\
+        2
+        0
+        2 1
+        3 3
+        0 0 0
+        - - 0
+        0 0 0
+        """)
+        game = GameState(board)
+        game.bomb_phase = True
+
+        next_game_states = game.get_possible_bomb_move_on_position((0, 0), player=PLAYER_ONE)
+        self.assertEqual(1, len(next_game_states))
+        self.assert_board(next_game_states[0].board,
+                          [[HOLE, HOLE, EMPTY],
+                           [HOLE, HOLE, EMPTY],
+                           [EMPTY, EMPTY, EMPTY]])
+        self.assertEqual(next_game_states[0].player_bombs[PLAYER_ONE], 1)
+        self.assertEqual(next_game_states[0].player_bombs[PLAYER_TWO], 2)
+
+    def test_get_possible_moves_bomb_two(self):
+        board = Board("""\
+        2
+        0
+        2 2
+        3 3
+        0 0 0
+        - - 0
+        0 0 0
+        """)
+        game = GameState(board)
+        game.bomb_phase = True
+
+        next_game_states = game.get_possible_bomb_move_on_position((0, 0), player=PLAYER_ONE)
+        self.assertEqual(1, len(next_game_states))
+        self.assert_board(next_game_states[0].board,
+                          [[HOLE, HOLE, HOLE],
+                           [HOLE, HOLE, HOLE],
+                           [EMPTY, EMPTY, EMPTY]])
+        self.assertEqual(next_game_states[0].player_bombs[PLAYER_ONE], 1)
+        self.assertEqual(next_game_states[0].player_bombs[PLAYER_TWO], 2)
+
+    def test_get_possible_moves_bomb_transition(self):
+        board = Board("""\
+        2
+        0
+        2 1
+        3 3
+        0 0 0
+        - - 0
+        0 0 0
+        0 0 6 <-> 2 2 2
+        """)
+        game = GameState(board)
+        game.bomb_phase = True
+
+        next_game_states = game.get_possible_bomb_move_on_position((0, 0), player=PLAYER_ONE)
+        self.assertEqual(1, len(next_game_states))
+        self.assert_board(next_game_states[0].board,
+                          [[HOLE, HOLE, EMPTY],
+                           [HOLE, HOLE, EMPTY],
+                           [EMPTY, EMPTY, HOLE]])
+        self.assertEqual(next_game_states[0].player_bombs[PLAYER_ONE], 1)
+        self.assertEqual(next_game_states[0].player_bombs[PLAYER_TWO], 2)
+
     def test_get_possible_moves_boese01(self):
         board = Board("""\
         2

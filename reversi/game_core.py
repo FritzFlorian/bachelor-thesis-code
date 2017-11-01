@@ -22,6 +22,7 @@ class GameState:
     def __init__(self, board):
         self.board = board
         self.last_move = None
+        self.bomb_phase = False
 
         self.player_bombs = dict()
         self.player_overwrites = dict()
@@ -83,15 +84,48 @@ class GameState:
 
         return possible_moves
 
+    def get_possible_bomb_move_on_position(self, pos, player=None):
+        if not player:
+            player = self.next_player()
+
+        if self.player_bombs[player] <= 0:
+            return []
+        if self.board[pos] == Field.HOLE:
+            return []
+
+        new_game_state = copy.deepcopy(self)
+        new_game_state.player_bombs[player] = self.player_bombs[player] - 1
+
+        new_game_state.board.execute_bomb_at(self.board, pos)
+        return [new_game_state]
+
     def get_possible_moves_for_player(self, player=None, use_overwrite=False):
         """Gets the possible moves for the next player only. Can be empty result if the next player can not move."""
         if not player:
             player = self.next_player()
 
         possible_moves = []
+        if not self.bomb_phase:
+            for x in range(self.board.width):
+                for y in range(self.board.height):
+                    possible_moves.append(self.get_possible_moves_on_position((x, y), player=player, use_overwrite=use_overwrite))
+
+        return list(itertools.chain.from_iterable(possible_moves))
+
+    def get_possible_bomb_moves_for_player(self, player=None):
+        """Gets the possible bomb moves for the next player only.
+        Can be empty result if the next player can not move."""
+        if not self.bomb_phase:
+            return []
+
+        if not player:
+            player = self.next_player()
+
+        possible_moves = []
         for x in range(self.board.width):
             for y in range(self.board.height):
-                possible_moves.append(self.get_possible_moves_on_position((x, y), player=player, use_overwrite=use_overwrite))
+                possible_moves.append(
+                    self.get_possible_bomb_move_on_position((x, y), player=player))
 
         return list(itertools.chain.from_iterable(possible_moves))
 
@@ -100,11 +134,23 @@ class GameState:
         :return: A list of possible follow up game states
         """
         next_player = self.next_player()
+
+        if not self.bomb_phase:
+            for i in range(self.board.n_players):
+                possible_moves = self.get_possible_moves_for_player(player=next_player, use_overwrite=True)
+                if len(possible_moves) > 0:
+                    return possible_moves
+
+                next_player = self.next_player(next_player)
+
+        self.bomb_phase = True
+        next_player = self.next_player()
         for i in range(self.board.n_players):
-            possible_moves = self.get_possible_moves_for_player(player=next_player, use_overwrite=True)
+            possible_moves = self.get_possible_bomb_moves_for_player(player=next_player)
             if len(possible_moves) > 0:
                 return possible_moves
 
+            next_player = self.next_player(next_player)
         return []
 
     def next_player(self, player=None):
@@ -241,6 +287,21 @@ class Board:
                 elif self.board[(x, y)] == second:
                     self.board[(x, y)] = first
 
+    def execute_bomb_at(self, old_board, pos):
+        self._execute_bomb_at_recursive(old_board, pos, self.s_bombs)
+
+    def _execute_bomb_at_recursive(self, old_board, pos, strength):
+        # Stop at walls an if the strength runs out
+        if strength < 0:
+            return
+        if old_board[pos] == Field.HOLE or not old_board[pos]:
+            return
+
+        self.board[pos] = Field.HOLE
+        for dir in Direction:
+            new_pos, _ = self._next_pos(pos, dir)
+            self._execute_bomb_at_recursive(old_board, new_pos, strength - 1)
+
     def _is_walkable(self, pos, player):
         return (self.is_player_at(pos) or self.board[pos] == Field.EXPANSION) and self.board[pos] != player
 
@@ -288,7 +349,9 @@ class Board:
         return '\n'.join(str_list)
 
     def __getitem__(self, arg):
-        return self.board[arg]
+        if arg in self.board:
+            return self.board[arg]
+        return None
 
 
 class Field(Enum):
