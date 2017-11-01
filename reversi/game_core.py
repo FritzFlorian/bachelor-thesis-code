@@ -1,6 +1,7 @@
 from enum import Enum
 import io
 import copy
+import itertools
 
 
 class GameState:
@@ -31,6 +32,57 @@ class GameState:
             self.player_overwrites[player] = board.n_overwrite
             self.players.add(player)
 
+    def get_possible_moves_on_position(self, pos, player=None, use_overwrite=False):
+        if not player:
+            player = self.next_player()
+
+        x, y = pos
+        possible_moves = []
+        type, new_board = \
+            self.board.execute_move((x, y), player, use_overwrite and self.player_overwrites[player] > 0)
+
+        # Handle different special move cases. Not really a good way to do them shorter.
+        # Note that we do a lot of double copying here, this can be optimized, but is fine for now.
+        if type == 'error':
+            pass
+        elif type == 'normal':
+            new_game_state = copy.deepcopy(self)
+            new_game_state.board = new_board
+            new_game_state.last_move = (player, (x, y), None)
+
+            possible_moves.append(new_game_state)
+        elif type == 'overwrite':
+            new_game_state = copy.deepcopy(self)
+            new_game_state.board = new_board
+            new_game_state.last_move = (player, (x, y), None)
+
+            new_game_state.player_overwrites[player] = new_game_state.player_overwrites[player] - 1
+            possible_moves.append(new_game_state)
+        elif type == 'bonus':
+            new_game_state = copy.deepcopy(self)
+            new_game_state.board = new_board
+            new_game_state_two = copy.deepcopy(new_game_state)
+
+            new_game_state.last_move = (player, (x, y), 'bomb')
+            new_game_state.player_bombs[player] = new_game_state.player_bombs[player] + 1
+
+            new_game_state_two.last_move = (player, (x, y), 'overwrite')
+            new_game_state_two.player_overwrites[player] = new_game_state_two.player_overwrites[player] + 1
+
+            possible_moves.append(new_game_state)
+            possible_moves.append(new_game_state_two)
+        elif type == 'choice':
+            # Sorting is just to make this deterministic in tests
+            for chosen_player in sorted(self.players):
+                new_game_state = copy.deepcopy(self)
+                new_game_state.board = copy.deepcopy(new_board)
+                new_game_state.board.swap_stones(player, chosen_player)
+                new_game_state.last_move = (player, (x, y), chosen_player)
+
+                possible_moves.append(new_game_state)
+
+        return possible_moves
+
     def get_possible_moves_for_player(self, player=None, use_overwrite=False):
         """Gets the possible moves for the next player only. Can be empty result if the next player can not move."""
         if not player:
@@ -39,49 +91,9 @@ class GameState:
         possible_moves = []
         for x in range(self.board.width):
             for y in range(self.board.height):
-                type, new_board = \
-                    self.board.execute_move((x, y), player, use_overwrite and self.player_overwrites[player] > 0)
+                possible_moves.append(self.get_possible_moves_on_position((x, y), player=player, use_overwrite=use_overwrite))
 
-                # Handle different special move cases. Not really a good way to do them shorter.
-                # Note that we do a lot of double copying here, this can be optimized, but is fine for now.
-                if type == 'error':
-                    continue
-                elif type == 'normal':
-                    new_game_state = copy.deepcopy(self)
-                    new_game_state.board = new_board
-                    new_game_state.last_move = (player, (x, y), None)
-
-                    possible_moves.append(new_game_state)
-                elif type == 'overwrite':
-                    new_game_state = copy.deepcopy(self)
-                    new_game_state.board = new_board
-                    new_game_state.last_move = (player, (x, y), None)
-
-                    new_game_state.player_overwrites[player] = new_game_state.player_overwrites[player] - 1
-                    possible_moves.append(new_game_state)
-                elif type == 'bonus':
-                    new_game_state = copy.deepcopy(self)
-                    new_game_state.board = new_board
-                    new_game_state_two = copy.deepcopy(new_game_state)
-
-                    new_game_state.last_move = (player, (x, y), 'bomb')
-                    new_game_state.player_bombs = new_game_state.player_bombs[player] + 1
-
-                    new_game_state_two.last_move = (player, (x, y), 'overwrite')
-                    new_game_state_two.player_overwrites[player] = new_game_state_two.player_overwrites[player] +1
-
-                    possible_moves.append(new_game_state)
-                    possible_moves.append(new_game_state_two)
-                elif type == 'choice':
-                    for chosen_player in self.players:
-                        new_game_state = copy.deepcopy(self)
-                        new_game_state.board = copy.deepcopy(new_board)
-                        new_game_state.board.swap_stones(player, chosen_player)
-                        new_game_state.last_move = (player, (x, y), chosen_player)
-
-                        possible_moves.append(new_game_state)
-
-        return possible_moves
+        return list(itertools.chain.from_iterable(possible_moves))
 
     def get_next_possible_moves(self):
         """Finds the next list of moves that can be executed with regard to the player ordering.
@@ -93,7 +105,7 @@ class GameState:
             if len(possible_moves) > 0:
                 return possible_moves
 
-        return None
+        return []
 
     def next_player(self, player=None):
         """Finds the next player according to the player ordering and disqualified players.
@@ -165,8 +177,8 @@ class Board:
             end_pos = (int(components[4]), int(components[5]))
             end_dir = Direction(int(components[6]))
 
-            self.transitions[(start_pos, start_dir)] = (end_pos, end_dir)
-            self.transitions[(end_pos, end_dir)] = (start_pos, start_dir)
+            self.transitions[(start_pos, start_dir)] = (end_pos, Direction.mirror(end_dir))
+            self.transitions[(end_pos, end_dir)] = (start_pos, Direction.mirror(start_dir))
 
     def execute_move(self, pos, player, use_overwrite=True):
         if pos not in self.board:
@@ -187,12 +199,12 @@ class Board:
         for dir in Direction:
             cur_captured = []
             cur_pos, cur_dir = self._next_pos(pos, dir)
-            while cur_pos in self.board and self._is_walkable(cur_pos, player):
+            while cur_pos in self.board and self._is_walkable(cur_pos, player) and cur_pos != pos:
                 cur_captured.append(cur_pos)
                 cur_pos, cur_dir = self._next_pos(cur_pos, cur_dir)
 
             # Need to end a line at our player
-            if cur_pos in self.board and self.board[cur_pos] == player:
+            if cur_pos in self.board and self.board[cur_pos] == player and cur_pos != pos:
                 captured_positions = captured_positions + cur_captured
 
         if len(captured_positions) <= 1 and self.board[pos] != Field.EXPANSION:
@@ -210,7 +222,7 @@ class Board:
             return 'bonus', next_board
 
         if self.board[pos] == Field.INVERSION:
-            self.execute_inversion()
+            next_board.execute_inversion()
         return 'normal', next_board
 
     def execute_inversion(self):
@@ -298,6 +310,9 @@ class Field(Enum):
 
     HOLE = '-'
 
+    def __lt__(self, other):
+        return ord(self.value) < ord(other.value)
+
 
 PLAYERS = {Field.PLAYER_ONE, Field.PLAYER_TWO, Field.PLAYER_THREE, Field.PLAYER_FOUR,
            Field.PLAYER_FIVE, Field.PLAYER_SIX, Field.PLAYER_SEVEN, Field.PLAYER_EIGHT}
@@ -312,3 +327,8 @@ class Direction(Enum):
     BOTTOM_LEFT = 5
     LEFT = 6
     TOP_LEFT = 7
+
+    @staticmethod
+    def mirror(direction):
+        new_val = (direction.value + 4) % 8
+        return Direction(new_val)
