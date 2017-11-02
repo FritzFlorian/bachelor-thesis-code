@@ -54,11 +54,11 @@ class TestNetworkCommunication(unittest.TestCase):
         self.assertEqual(((2, 0), Direction.LEFT), answer.board.transitions[((0, 0), Direction.TOP)])
 
     def test_player_number_message(self):
-        player_message = network.PlayerNumberMessage(player_number=1)
+        player_message = network.PlayerNumberMessage(player=Field.PLAYER_ONE)
         player_message.write_to_conn(self.server_conn)
         answer = network.read_message_from_conn(self.client)
 
-        self.assertEqual(1, answer.player_number)
+        self.assertEqual(Field.PLAYER_ONE, answer.player)
 
     def test_move_request_message(self):
         move_request_message = network.MoveRequestMessage(time_limit=100, depth_limit=5)
@@ -106,6 +106,38 @@ class TestNetworkCommunication(unittest.TestCase):
 
         self.assertTrue(isinstance(answer, network.EndPhaseTwoMessage))
 
+
+class TestBasicClientServer(unittest.TestCase):
+    def test_typical_interaction(self):
+        server = network.BasicServer()
+        client = network.BasicClient(14)
+        server.start()
+
+        def connect_client():
+            client.start()
+        t = threading.Thread(target=connect_client)
+        t.start()
+
+        self.assertEqual(14, server.accept_client())
+        self.assertTrue(server.clients_by_group[14])
+
+        server.set_player_for_group(14, Field.PLAYER_ONE)
+
+        t.join()
+        self.assertEqual(Field.PLAYER_ONE, client.player)
+
+        server.send_player_message(Field.PLAYER_ONE, network.MoveRequestMessage(1000, 0))
+        rec = client.read_message()
+        self.assertEqual(1000, rec.time_limit)
+        self.assertEqual(0, rec.depth_limit)
+
+        client.send_message(network.MoveResponseMessage((1, 2), None))
+        rec = server.read_player_message(Field.PLAYER_ONE, network.MoveResponseMessage)
+        self.assertEqual((1, 2), rec.pos)
+        self.assertEqual(None, rec.choice)
+
+        client.stop()
+        server.stop()
 
 if __name__ == '__main__':
     unittest.main()

@@ -66,9 +66,12 @@ class BasicServer:
 
     def start(self):
         self.logger.info("Starting server on port {}...".format(self.port))
-        self.server.bind((socket.gethostname(), self.port))
+        self.server.bind(('0.0.0.0', self.port))
+        self.server.listen(1)
 
     def stop(self):
+        for k, v in self.clients_by_group.items():
+            v.close()
         self.server.close()
 
     def accept_client(self):
@@ -78,7 +81,7 @@ class BasicServer:
 
         # Read the group, simply assign one if there are conflicts
         group = self._read_message(client, GroupNumberMessage).group_number
-        while group in self.clients_by_group:
+        while group in self.clients_by_group.items():
             group = self.next_group
             self.next_group = self.next_group + 1
 
@@ -106,10 +109,8 @@ class BasicServer:
         self._send_message(client, message)
 
     def _read_message(self, client, message_class, timeout=GENERAL_TIMEOUT):
-        group = self.group_by_client[client]
-        player = None
-        if client in self.player_by_client:
-            player = self.player_by_client[client]
+        group = self.group_by_client.get(client, None)
+        player = self.player_by_client.get(client, None)
 
         try:
             client.settimeout(timeout)
@@ -131,10 +132,9 @@ class BasicServer:
         try:
             message.write_to_conn(client)
         except socket.error as err:
-            group = self.group_by_client[client]
-            player = None
-            if client in self.player_by_client:
-                player = self.player_by_client[client]
+            group = self.group_by_client.get(client, None)
+            player = self.player_by_client.get(client, None)
+
             self.logger.error("Detected Network Error ({})! Group: {}, Player: {}".format(client, group, player))
             raise DisqualifiedError(group, player, "Network Error!", err)
 
@@ -172,7 +172,7 @@ class BasicClient:
         self.send_message(group_message)
         self.logger.info("Connected as group {}, waiting for player number...")
 
-        self.player = self.read_message().player_number
+        self.player = self.read_message().player
         self.logger.info("Client was assigned player {}.".format(self.player.value))
 
     def stop(self):
@@ -333,19 +333,19 @@ class BoardMessage(Message):
 
 
 class PlayerNumberMessage(Message):
-    def __init__(self, player_number=None):
+    def __init__(self, player=None):
         super().__init__()
-        self.player_number = player_number
+        self.player = player
 
     def read_from_conn(self, conn):
         self.read_message_length(conn)
-        self.player_number = read_8_bit_int(conn)
+        self.player = Field(chr(ord(Field.PLAYER_ONE.value) + read_8_bit_int(conn) - 1))
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 3)
         write_32_bit_int(conn, 8)
 
-        write_8_bit_int(conn, self.player_number)
+        write_8_bit_int(conn, ord(self.player.value) - ord(Field.PLAYER_ONE.value) + 1)
 
 
 class MoveRequestMessage(Message):
