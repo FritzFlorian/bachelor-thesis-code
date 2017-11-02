@@ -51,7 +51,7 @@ class BasicServer:
     >>> server.stop()
     """
     def __init__(self, port=DEFAULT_PORT):
-        self.logger = logging.getLogger("BasicClient ({})".format(port))
+        self.logger = logging.getLogger("BasicServer ({})".format(port))
 
         self.port = port
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -140,7 +140,49 @@ class BasicServer:
 
 
 class BasicClient:
-    pass
+    """Basic ReversiXT Network Client. Use this to build your custom Client.
+
+    Basic Usage:
+    >>> client = BasicClient(14, 'localhost', 4242)
+    >>> client.start()
+    >>>
+    >>> print(client.player)
+    >>>
+    >>> message = client.read_message()
+    >>> if isinstance(message, MoveRequestMessage):
+    >>>     client.send_message(MoveResponseMessage(...))
+    >>> elif isinstance(message, DisqualificationMessage):
+    >>>     ...
+    """
+    def __init__(self, group, host=DEFAULT_HOST, port=DEFAULT_PORT):
+        self.logger = logging.getLogger("BasicClient ({}:{})".format(host, port))
+
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.host = host
+        self.port = port
+        self.group = group
+        self.player = None
+
+    def start(self):
+        """Connects to the server and exchanges group and player number."""
+        self.logger.info("Connecting to server...")
+        self.client.connect((self.host, self.port))
+
+        group_message = GroupNumberMessage(self.group)
+        self.send_message(group_message)
+        self.logger.info("Connected as group {}, waiting for player number...")
+
+        self.player = self.read_message().player_number
+        self.logger.info("Client was assigned player {}.".format(self.player.value))
+
+    def stop(self):
+        self.client.close()
+
+    def send_message(self, message):
+        message.write_to_conn(self.client)
+
+    def read_message(self):
+        return read_message_from_conn(self.client)
 
 
 def read_n_bytes(conn, n_bytes):
