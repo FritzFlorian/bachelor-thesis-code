@@ -345,9 +345,10 @@ class Board:
             str_list.append(" ".join(line_items))
 
         for k, v in self.transitions.items():
-            x_1, y_1, dir_1 = k
-            x_2, y_2, dir_2 = v
-            str_list.append("{} {} {} <-> {} {} {}".format(x_1, y_1, dir_1.value, x_2, y_2, dir_2.value))
+            (x_1, y_1), dir_1 = k
+            (x_2, y_2), dir_2 = v
+            str_list.append("{} {} {} <-> {} {} {}"
+                            .format(x_1, y_1, dir_1.value, x_2, y_2, Direction.mirror(dir_2).value))
 
         return '\n'.join(str_list)
 
