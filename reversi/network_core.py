@@ -29,26 +29,26 @@ class DisqualifiedError(Exception):
         self.cause = cause
 
 
-class BasicClient:
-    """Basic ReversiXT Network Client. Use this to build your custom Client.
+class BasicServer:
+    """Basic ReversiXT Network Server. Use this to build your custom Server.
 
     Basic Usage:
-    >>> client = BasicClient(4242)
-    >>> client.start()
+    >>> server = BasicServer(4242)
+    >>> server.start()
     >>>
-    >>> one = client.accept_client()
-    >>> two = client.accept_client()
+    >>> one = server.accept_client()
+    >>> two = server.accept_client()
     >>>
-    >>> client.set_player_for_group(one, Field.PLAYER_ONE)
-    >>> client.set_player_for_group(two, Field.PLAYER_TWO)
+    >>> server.set_player_for_group(one, Field.PLAYER_ONE)
+    >>> server.set_player_for_group(two, Field.PLAYER_TWO)
     >>>
-    >>> client.send_player_message(Field.PLAYER_ONE, MoveRequestMessage(...))
-    >>> response = client.read_player_message(Field.PLAYER_ONE, MoveResponseMessage, 10)
+    >>> server.send_player_message(Field.PLAYER_ONE, MoveRequestMessage(...))
+    >>> response = server.read_player_message(Field.PLAYER_ONE, MoveResponseMessage, 10)
     >>>
     >>> for p in [Field.PLAYER_ONE, Field.PLAYER_TWO]:
-    >>>     client.send_player_message(p, MoveNotificationMessage(...))
+    >>>     server.send_player_message(p, MoveNotificationMessage(...))
     >>>
-    >>> client.stop()
+    >>> server.stop()
     """
     def __init__(self, port=DEFAULT_PORT):
         self.logger = logging.getLogger("BasicClient ({})".format(port))
@@ -139,7 +139,7 @@ class BasicClient:
             raise DisqualifiedError(group, player, "Network Error!", err)
 
 
-class BasicServer:
+class BasicClient:
     pass
 
 
