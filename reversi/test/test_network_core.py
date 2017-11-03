@@ -109,7 +109,16 @@ class TestNetworkCommunication(unittest.TestCase):
 
 class TestBasicClientServer(unittest.TestCase):
     def test_typical_interaction(self):
-        server = network.BasicServer()
+        board = Board("""\
+        2
+        0
+        0 0
+        2 2
+        0 0
+        0 0
+        """)
+
+        server = network.BasicServer(board)
         client = network.BasicClient(14)
         server.start()
 

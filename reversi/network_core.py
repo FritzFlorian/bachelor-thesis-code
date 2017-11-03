@@ -50,9 +50,10 @@ class BasicServer:
     >>>
     >>> server.stop()
     """
-    def __init__(self, port=DEFAULT_PORT):
+    def __init__(self, board, port=DEFAULT_PORT):
         self.logger = logging.getLogger("BasicServer ({})".format(port))
 
+        self.board = board
         self.port = port
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -93,6 +94,8 @@ class BasicServer:
 
     def set_player_for_group(self, group, player):
         client = self.clients_by_group[group]
+
+        self._send_message(client, BoardMessage(self.board))
         self._send_message(client, PlayerNumberMessage(player))
 
         self.clients_by_player[player] = client
@@ -146,6 +149,7 @@ class BasicClient:
     >>> client = BasicClient(14, 'localhost', 4242)
     >>> client.start()
     >>>
+    >>> print(client.board)
     >>> print(client.player)
     >>>
     >>> message = client.read_message()
@@ -162,6 +166,7 @@ class BasicClient:
         self.port = port
         self.group = group
         self.player = None
+        self.board = None
 
     def start(self):
         """Connects to the server and exchanges group and player number."""
@@ -170,7 +175,10 @@ class BasicClient:
 
         group_message = GroupNumberMessage(self.group)
         self.send_message(group_message)
-        self.logger.info("Connected as group {}, waiting for player number...")
+        self.logger.info("Connected as group {}, waiting for board...".format(self.group))
+
+        self.board = self.read_message().board
+        self.logger.info("Board received, waiting for player number...")
 
         self.player = self.read_message().player
         self.logger.info("Client was assigned player {}.".format(self.player.value))
@@ -307,7 +315,7 @@ class GroupNumberMessage(Message):
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 1)
-        write_32_bit_int(conn, 8)
+        write_32_bit_int(conn, 1)
 
         write_8_bit_int(conn, self.group_number)
 
@@ -343,7 +351,7 @@ class PlayerNumberMessage(Message):
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 3)
-        write_32_bit_int(conn, 8)
+        write_32_bit_int(conn, 1)
 
         write_8_bit_int(conn, ord(self.player.value) - ord(Field.PLAYER_ONE.value) + 1)
 
@@ -362,7 +370,7 @@ class MoveRequestMessage(Message):
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 4)
-        write_32_bit_int(conn, 32 + 8)
+        write_32_bit_int(conn, 4 + 1)
 
         write_32_bit_int(conn, self.time_limit)
         write_8_bit_int(conn, self.depth_limit)
@@ -382,7 +390,7 @@ class MoveResponseMessage(Message):
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 5)
-        write_32_bit_int(conn, 16 + 16 + 8)
+        write_32_bit_int(conn, 2 + 2 + 1)
 
         x, y = self.pos
         write_16_bit_int(conn, x)
@@ -406,7 +414,7 @@ class MoveNotificationMessage(Message):
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 6)
-        write_32_bit_int(conn, 16 + 16 + 8 + 8)
+        write_32_bit_int(conn, 2 + 2 + 1 + 1)
 
         x, y = self.pos
         write_16_bit_int(conn, x)
@@ -427,7 +435,7 @@ class DisqualificationMessage(Message):
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 7)
-        write_32_bit_int(conn, 8)
+        write_32_bit_int(conn, 1)
 
         write_8_bit_int(conn, ord(self.player.value) - ord(Field.PLAYER_ONE.value) + 1)
 

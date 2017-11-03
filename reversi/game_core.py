@@ -34,6 +34,14 @@ class GameState:
             self.player_overwrites[player] = board.n_overwrite
             self.players.add(player)
 
+    def execute_move(self, player, pos, choice):
+        possible = self.get_possible_moves_on_position(pos, player, True)
+        for p in possible:
+            if p.last_move == (player, pos, choice):
+                return p
+
+        return None
+
     def get_possible_moves_on_position(self, pos, player=None, use_overwrite=False):
         if not player:
             player = self.next_player()
@@ -176,6 +184,9 @@ class GameState:
                 return new_player
 
         return None
+
+    def disqualify_player(self, player):
+        self.players.remove(player)
 
 
 class Board:
