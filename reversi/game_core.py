@@ -35,7 +35,13 @@ class GameState:
             self.players.add(player)
 
     def execute_move(self, player, pos, choice):
-        possible = self.get_possible_moves_on_position(pos, player, True)
+        if not self.bomb_phase:
+            possible = self.get_possible_moves_on_position(pos, player, True)
+            for p in possible:
+                if p.last_move == (player, pos, choice):
+                    return p
+
+        possible = self.get_possible_bomb_move_on_position(pos, player)
         for p in possible:
             if p.last_move == (player, pos, choice):
                 return p
@@ -106,6 +112,7 @@ class GameState:
         new_game_state.player_bombs[player] = self.player_bombs[player] - 1
 
         new_game_state.board.execute_bomb_at(self.board, pos)
+        new_game_state.last_move = (player, pos, None)
         return [new_game_state]
 
     def get_possible_moves_for_player(self, player=None, use_overwrite=False):
@@ -349,17 +356,24 @@ class Board:
         str_list.append(str(self.n_overwrite))
         str_list.append("{} {}".format(self.n_bombs, self.s_bombs))
         str_list.append("{} {}".format(self.height, self.width))
-        for y in range(self.height):
-            line_items = []
-            for x in range(self.width):
-                line_items.append(self.board[(x, y)].value)
-            str_list.append(" ".join(line_items))
+        str_list.append(self.map_string())
 
         for k, v in self.transitions.items():
             (x_1, y_1), dir_1 = k
             (x_2, y_2), dir_2 = v
             str_list.append("{} {} {} <-> {} {} {}"
                             .format(x_1, y_1, dir_1.value, x_2, y_2, Direction.mirror(dir_2).value))
+
+        return '\n'.join(str_list)
+
+    def map_string(self):
+        str_list = list()
+
+        for y in range(self.height):
+            line_items = []
+            for x in range(self.width):
+                line_items.append(self.board[(x, y)].value)
+            str_list.append(" ".join(line_items))
 
         return '\n'.join(str_list)
 

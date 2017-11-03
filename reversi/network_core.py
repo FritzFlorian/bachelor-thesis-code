@@ -82,7 +82,7 @@ class BasicServer:
 
         # Read the group, simply assign one if there are conflicts
         group = self._read_message(client, GroupNumberMessage).group_number
-        while group in self.clients_by_group.items():
+        while group in self.clients_by_group:
             group = self.next_group
             self.next_group = self.next_group + 1
 
@@ -110,6 +110,14 @@ class BasicServer:
     def send_player_message(self, player, message):
         client = self.clients_by_player[player]
         self._send_message(client, message)
+
+    def broadcast_message(self, message):
+        for k, v in self.clients_by_group.items():
+            try:
+                self._send_message(v, message)
+            except socket.error:
+                # TODO: Properly handle disqualifications in broadcast
+                pass
 
     def _read_message(self, client, message_class, timeout=GENERAL_TIMEOUT):
         group = self.group_by_client.get(client, None)
