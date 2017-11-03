@@ -1,8 +1,9 @@
 from reversi.network_core import BasicServer, DEFAULT_PORT
-from reversi.game_core import GameState, Board, Field
+from reversi.game_core import GameState, Board, Field, DisqualifiedError
 import reversi.network_core as network_core
 import threading
 import logging
+import time
 
 
 class Server(threading.Thread):
@@ -11,8 +12,12 @@ class Server(threading.Thread):
         self.logger = logging.getLogger("Server ({})".format(port))
         self.game = GameState(board)
         self.server = BasicServer(board, port)
-        self.time = time
+        self.time = time * 1000
         self.depth = depth
+
+        self.times = dict()
+        for player in self.game.players:
+            self.times[player] = 0
 
     def run(self):
         self.server.start()
@@ -34,40 +39,73 @@ class Server(threading.Thread):
             was_in_bomb_phase = self.game.bomb_phase
             next_moves = self.game.get_next_possible_moves()
             if len(next_moves) == 0:
-                self.server.broadcast_message(network_core.EndPhaseTwoMessage())
-                self.logger.info("No more moves, ending game...")
+                self._end_game()
                 return
 
             if next_moves[0].bomb_phase != was_in_bomb_phase:
                 self.server.broadcast_message(network_core.EndPhaseOneMessage())
 
             (player, _, _) = next_moves[0].last_move
-            self.logger.info("Send move request to player {} ({} possible moves).".format(player.value, len(next_moves)))
-
-            try:
-                move_request = network_core.MoveRequestMessage(1000 * self.time, self.depth)
-                self.server.send_player_message(player, move_request)
-
-                move_response = self.server.read_player_message(player, network_core.MoveResponseMessage, self.time)
-                self.game = self.game.execute_move(player, move_response.pos, move_response.choice)
-                self.logger.info("Player Move: ({}, {})".format(move_response.pos, move_response.choice))
-                self.logger.info(self.game.board.map_string())
-
-                move_notification = network_core.MoveNotificationMessage(move_response.pos, move_response.choice,
-                                                                         player)
-                self.server.broadcast_message(move_notification)
-            except network_core.DisqualifiedError as err:
-                self.logger.info("Player {} Disqualified! {}".format(player.value, err))
-                self.game.disqualify_player(player)
-                self.server.broadcast_message(network_core.DisqualificationMessage(player))
+            self._let_player_move(player)
 
             if len(self.game.players) <= 1:
-                # Everyone is disqualified, end the game
-                if not self.game.bomb_phase:
-                    self.server.broadcast_message(network_core.EndPhaseOneMessage())
-                    self.server.broadcast_message(network_core.EndPhaseTwoMessage())
-                    self.logger.info("Everyone is disqualified, ending game...")
-                    return
+                self._end_game_disqualified()
+                return
+
+    def _let_player_move(self, player):
+        try:
+            self._inc_player_time(player)
+            self._send_move_request(player)
+
+            start_time = time.time()
+            self._process_move_answer(player)
+            move_time_in_ms = int((time.time() - start_time) * 1000)
+            self.times[player] = self.times[player] - move_time_in_ms
+            self.logger.info("Turn took {} ms".format(move_time_in_ms))
+
+            self._broadcast_last_move_notification()
+        except DisqualifiedError as err:
+            self._disqualify_player(player, err)
+
+    def _send_move_request(self, player):
+        self.logger.info("Send move request to player {} ({} ms,  depth {})."
+                         .format(player.value, self.times[player], self.depth))
+        move_request = network_core.MoveRequestMessage(self.times[player], self.depth)
+        self.server.send_player_message(player, move_request)
+
+    def _process_move_answer(self, player):
+        move_response = \
+            self.server.read_player_message(player, network_core.MoveResponseMessage, self.times[player]/1000)
+        self.logger.info("Player Move: ({}, {})".format(move_response.pos, move_response.choice))
+
+        self.game = self.game.execute_move(player, move_response.pos, move_response.choice)
+        if not self.game:
+            raise DisqualifiedError("Client send invalid move!", player)
+
+        self.logger.info(self.game.board.map_string())
+
+    def _broadcast_last_move_notification(self):
+        (player, pos, choice) = self.game.last_move
+        move_notification = network_core.MoveNotificationMessage(pos, choice, player)
+        self.server.broadcast_message(move_notification)
+
+    def _inc_player_time(self, player):
+        self.times[player] = self.times[player] + self.time
+
+    def _end_game_disqualified(self):
+        if not self.game.bomb_phase:
+            self.server.broadcast_message(network_core.EndPhaseOneMessage())
+        self.server.broadcast_message(network_core.EndPhaseTwoMessage())
+        self.logger.info("Everyone is disqualified, ending game...")
+
+    def _end_game(self):
+        self.server.broadcast_message(network_core.EndPhaseTwoMessage())
+        self.logger.info("No more moves, ending game...")
+
+    def _disqualify_player(self, player, err):
+        self.logger.info("Player {} Disqualified! {}".format(player.value, err))
+        self.game.disqualify_player(player)
+        self.server.broadcast_message(network_core.DisqualificationMessage(player))
 
 
 if __name__ == '__main__':

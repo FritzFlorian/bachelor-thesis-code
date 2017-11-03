@@ -5,6 +5,14 @@ import copy
 import itertools
 
 
+class DisqualifiedError(Exception):
+    """All 'known' client errors and timeouts lead to an disqualified exception for that player."""
+    def __init__(self, player, message, cause=None):
+        self.player = player
+        self.message = message
+        self.cause = cause
+
+
 class GameState:
     """Fully describes a specific state of the game.
 

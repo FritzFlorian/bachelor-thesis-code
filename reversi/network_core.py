@@ -7,7 +7,7 @@ The BasicClient and BasicServer classes wrap all functions needed
 to run a client/server, but do not include code for server specific control flow.
 They should be used to build up the actual client/server as well as
 altered implementations useful for gathering data."""
-from reversi.game_core import Board, Field, PLAYERS
+from reversi.game_core import Board, Field, PLAYERS, DisqualifiedError
 import socket
 import logging
 import time
@@ -19,15 +19,6 @@ DEFAULT_HOST = 'localhost'
 MOVE_TIMEOUT = 5 * 60
 # Clients must answer basic request (not moves) in at most 10 seconds
 GENERAL_TIMEOUT = 10
-
-
-class DisqualifiedError(Exception):
-    """All 'known' client errors and timeouts lead to an disqualified exception for that player."""
-    def __init__(self, group, player, message, cause=None):
-        self.group = group
-        self.player = player
-        self.message = message
-        self.cause = cause
 
 class BasicServer:
     """Basic ReversiXT Network Server. Use this to build your custom Server.
@@ -122,30 +113,29 @@ class BasicServer:
                 pass
 
     def _read_message(self, client, message_class, timeout=GENERAL_TIMEOUT):
-        group = self.group_by_client.get(client, None)
         player = self.player_by_client.get(client, None)
 
         try:
             client.settimeout(float(timeout))
+            client.setblocking(True)
             message = read_message_from_conn(client)
             if isinstance(message, message_class):
                 return message
 
             # Handle most cases of client errors
-            raise DisqualifiedError(group, player, "Client sent wrong message type!")
+            raise DisqualifiedError(player, "Client sent wrong message type!")
         except socket.timeout as err:
-            raise DisqualifiedError(group, player, "Client Timeout!", err)
+            raise DisqualifiedError(player, "Client Timeout!", err)
         except socket.error as err:
-            raise DisqualifiedError(group, player, "Network Error!", err)
+            raise DisqualifiedError(player, "Network Error!", err)
 
     def _send_message(self, client, message):
         try:
             message.write_to_conn(client)
         except socket.error as err:
-            group = self.group_by_client.get(client, None)
             player = self.player_by_client.get(client, None)
 
-            raise DisqualifiedError(group, player, "Network Error!", err)
+            raise DisqualifiedError(player, "Network Error!", err)
 
 
 class BasicClient:
@@ -210,7 +200,8 @@ def read_n_bytes(conn, n_bytes):
         view = view[nbytes:]  # slicing views is cheap
         toread -= nbytes
 
-        if time.time() - start_time > conn.timeout:
+        # Stop receiving after the players time ran out
+        if conn.timeout and 0 < conn.timeout < time.time() - start_time:
             raise socket.timeout()
 
     return buf
