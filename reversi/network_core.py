@@ -10,6 +10,7 @@ altered implementations useful for gathering data."""
 from reversi.game_core import Board, Field, PLAYERS
 import socket
 import logging
+import time
 
 
 DEFAULT_PORT = 7777
@@ -27,7 +28,6 @@ class DisqualifiedError(Exception):
         self.player = player
         self.message = message
         self.cause = cause
-
 
 class BasicServer:
     """Basic ReversiXT Network Server. Use this to build your custom Server.
@@ -102,7 +102,8 @@ class BasicServer:
         self.player_by_client[client] = player
 
     def read_player_message(self, player, message_class, timeout=MOVE_TIMEOUT):
-        timeout = max(timeout, MOVE_TIMEOUT)
+        if timeout == 0:
+            timeout = MOVE_TIMEOUT
         client = self.clients_by_player[player]
 
         return self._read_message(client, message_class, timeout)
@@ -115,8 +116,9 @@ class BasicServer:
         for k, v in self.clients_by_group.items():
             try:
                 self._send_message(v, message)
-            except socket.error:
-                # TODO: Properly handle disqualifications in broadcast
+            except DisqualifiedError:
+                # Ignore these errors at this point, they do not influence the further game.
+                # We will disqualify players only if they don't send us messages in time.
                 pass
 
     def _read_message(self, client, message_class, timeout=GENERAL_TIMEOUT):
@@ -124,19 +126,16 @@ class BasicServer:
         player = self.player_by_client.get(client, None)
 
         try:
-            client.settimeout(timeout)
+            client.settimeout(float(timeout))
             message = read_message_from_conn(client)
             if isinstance(message, message_class):
                 return message
 
             # Handle most cases of client errors
-            self.logger.error("User sent wrong message type ({})! Group: {}, Player: {}".format(client, group, player))
-            raise DisqualifiedError(group, player, "Client set wrong message type!")
+            raise DisqualifiedError(group, player, "Client sent wrong message type!")
         except socket.timeout as err:
-            self.logger.error("Detected Timeout ({})! Group: {}, Player: {}".format(client, group, player))
             raise DisqualifiedError(group, player, "Client Timeout!", err)
         except socket.error as err:
-            self.logger.error("Detected Network Error ({})! Group: {}, Player: {}".format(client, group, player))
             raise DisqualifiedError(group, player, "Network Error!", err)
 
     def _send_message(self, client, message):
@@ -146,7 +145,6 @@ class BasicServer:
             group = self.group_by_client.get(client, None)
             player = self.player_by_client.get(client, None)
 
-            self.logger.error("Detected Network Error ({})! Group: {}, Player: {}".format(client, group, player))
             raise DisqualifiedError(group, player, "Network Error!", err)
 
 
@@ -203,6 +201,7 @@ class BasicClient:
 
 def read_n_bytes(conn, n_bytes):
     toread = n_bytes
+    start_time = time.time()
 
     buf = bytearray(toread)
     view = memoryview(buf)
@@ -210,6 +209,9 @@ def read_n_bytes(conn, n_bytes):
         nbytes = conn.recv_into(view, toread)
         view = view[nbytes:]  # slicing views is cheap
         toread -= nbytes
+
+        if time.time() - start_time > conn.timeout:
+            raise socket.timeout()
 
     return buf
 
