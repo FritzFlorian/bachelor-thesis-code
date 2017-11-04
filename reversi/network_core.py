@@ -24,7 +24,7 @@ class BasicServer:
     """Basic ReversiXT Network Server. Use this to build your custom Server.
 
     Basic Usage:
-    >>> server = BasicServer(4242)
+    >>> server = BasicServer(board, 4242)
     >>> server.start()
     >>>
     >>> one = server.accept_client()
@@ -47,6 +47,7 @@ class BasicServer:
         self.board = board
         self.port = port
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         self.clients_by_group = dict()
         self.clients_by_player = dict()

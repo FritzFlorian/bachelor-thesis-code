@@ -4,6 +4,7 @@ import reversi.network_core as network_core
 import threading
 import logging
 import time
+import reversi.serialization as serial
 
 
 class Server(threading.Thread):
@@ -14,6 +15,7 @@ class Server(threading.Thread):
         self.server = BasicServer(board, port)
         self.time = time * 1000
         self.depth = depth
+        self.history = serial.GameHistory()
 
         self.times = dict()
         for player in self.game.players:
@@ -33,6 +35,8 @@ class Server(threading.Thread):
 
         self.logger.info("Starting Game")
         self._game_loop()
+
+        self.server.stop()
 
     def _game_loop(self):
         while True:
@@ -86,10 +90,13 @@ class Server(threading.Thread):
 
     def _broadcast_last_move_notification(self):
         (player, pos, choice) = self.game.last_move
+        self.history.add_move(player, pos, choice)
         move_notification = network_core.MoveNotificationMessage(pos, choice, player)
         self.server.broadcast_message(move_notification)
 
     def _inc_player_time(self, player):
+        if self.times[player] < 0:
+            self.times[player] = 0
         self.times[player] = self.times[player] + self.time
 
     def _end_game_disqualified(self):
@@ -103,6 +110,7 @@ class Server(threading.Thread):
         self.logger.info("No more moves, ending game...")
 
     def _disqualify_player(self, player, err):
+        self.history.add_disqualification(player)
         self.logger.info("Player {} Disqualified! {}".format(player.value, err))
         self.game.disqualify_player(player)
         self.server.broadcast_message(network_core.DisqualificationMessage(player))
@@ -124,6 +132,38 @@ if __name__ == '__main__':
     0 0 0 0 0 0
     """)
 
-    server = Server(board, 10, 0)
+    # Play actual game
+    server = Server(board, 0, 1)
     server.start()
     server.join()
+
+    # Save game history
+    server.history.write('history.json')
+
+    # Load game history
+    history = serial.GameHistory()
+    history.read('history.json')
+
+    # Try replaying it
+    game = GameState(board)
+    for entry in history:
+        game = game.execute_move(entry.player, entry.pos, entry.choice)
+    print(game.board.map_string())
+
+    # Try replaying the game from a specific part of the replay.
+    # Note that we can replay with only one client connected.
+    basic_server = network_core.BasicServer(board)
+    basic_server.start()
+
+    basic_server.accept_client()
+
+    basic_server.set_player_for_group(0, Field.PLAYER_ONE)
+
+    for i in range(0, 8):
+        move = history[i]
+        basic_server.broadcast_message(network_core.MoveNotificationMessage(move.pos, move.choice, move.player))
+
+    # Now give the AI some more time for a specific move
+    basic_server.send_player_message(Field.PLAYER_ONE, network_core.MoveRequestMessage(20_000, 0))
+
+    basic_server.stop()
