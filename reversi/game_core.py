@@ -364,7 +364,7 @@ class Board:
         str_list.append(str(self.n_overwrite))
         str_list.append("{} {}".format(self.n_bombs, self.s_bombs))
         str_list.append("{} {}".format(self.height, self.width))
-        str_list.append(self.map_string())
+        str_list.append(self.board_string())
 
         for k, v in self.transitions.items():
             (x_1, y_1), dir_1 = k
@@ -374,7 +374,7 @@ class Board:
 
         return '\n'.join(str_list)
 
-    def map_string(self):
+    def board_string(self):
         str_list = list()
 
         for y in range(self.height):

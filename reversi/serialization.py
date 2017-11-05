@@ -5,12 +5,18 @@ from reversi.game_core import Field
 class GameHistory:
     def __init__(self):
         self.events = []
+        self.metadata = dict()
 
     def decode(self, string):
-        self.events = json.loads(string)['events']
+        loaded = json.loads(string)
+        self.events = loaded['events']
+        self.metadata = loaded['metadata']
 
     def encode(self):
-        return json.dumps({'events': self.events}, indent=4)
+        return json.dumps({
+            'events': self.events,
+            'metadata': self.metadata
+        }, indent=4)
 
     def write(self, filename):
         with open(filename, 'w') as file:
@@ -19,6 +25,9 @@ class GameHistory:
     def read(self, filename):
         with open(filename, 'r') as file:
             return self.decode(file.read())
+
+    def add_metadata(self, key, value):
+        self.metadata[key] = value
 
     def add_move(self, player, pos, choice):
         (x, y) = pos

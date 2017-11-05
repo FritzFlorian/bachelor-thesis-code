@@ -8,7 +8,7 @@ import reversi.serialization as serial
 
 
 class Server(threading.Thread):
-    def __init__(self, board, time, depth, port=DEFAULT_PORT):
+    def __init__(self, board, time, depth, port=DEFAULT_PORT, group_to_player=None):
         super().__init__()
         self.logger = logging.getLogger("Server ({})".format(port))
         self.game = GameState(board)
@@ -16,6 +16,7 @@ class Server(threading.Thread):
         self.time = time * 1000
         self.depth = depth
         self.history = serial.GameHistory()
+        self.group_to_player = group_to_player
 
         self.times = dict()
         for player in self.game.players:
@@ -30,8 +31,12 @@ class Server(threading.Thread):
             groups.append(self.server.accept_client())
 
         self.logger.info("All players connected, distributing maps and player numbers.")
-        for i in range(self.game.board.n_players):
-            self.server.set_player_for_group(groups[i], Field(chr(ord(Field.PLAYER_ONE.value) + i)))
+        if self.group_to_player:
+            for g, p in self.group_to_player.items():
+                self.server.set_player_for_group(g, p)
+        else:
+            for i in range(self.game.board.n_players):
+                self.server.set_player_for_group(groups[i], Field(chr(ord(Field.PLAYER_ONE.value) + i)))
 
         self.logger.info("Starting Game")
         self._game_loop()
@@ -86,7 +91,7 @@ class Server(threading.Thread):
         if not self.game:
             raise DisqualifiedError("Client send invalid move!", player)
 
-        self.logger.info(self.game.board.map_string())
+        self.logger.info(self.game.board.board_string())
 
     def _broadcast_last_move_notification(self):
         (player, pos, choice) = self.game.last_move
@@ -148,7 +153,7 @@ if __name__ == '__main__':
     game = GameState(board)
     for entry in history:
         game = game.execute_move(entry.player, entry.pos, entry.choice)
-    print(game.board.map_string())
+    print(game.board.board_string())
 
     # Try replaying the game from a specific part of the replay.
     # Note that we can replay with only one client connected.
