@@ -1,3 +1,0 @@
-model_checkpoint_path: "final.ckpt"
-all_model_checkpoint_paths: "checkpoint.ckpt"
-all_model_checkpoint_paths: "final.ckpt"
