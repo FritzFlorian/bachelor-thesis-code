@@ -41,6 +41,7 @@ class GameState:
             self.player_bombs[player] = board.n_bombs
             self.player_overwrites[player] = board.n_overwrite
             self.players.add(player)
+        self.start_players = copy.copy(self.players)
 
     def execute_move(self, player, pos, choice):
         if not self.bomb_phase:
@@ -203,6 +204,68 @@ class GameState:
     def disqualify_player(self, player):
         self.players.remove(player)
 
+    def calculate_scores(self):
+        stone_counts = self.board.count(self.players).items()
+
+        # Start scores as -1 in case anyone got disqualified
+        scores = {player: -1.0 for player in self.start_players}
+
+        # Get the ranks of all players according to ReversiXT tournament rules
+        ranks = self._rank_from_stone_counts(stone_counts)
+
+        # IMPORTANT
+        # We give different scores then reversi.
+        # Usually tied players all get the higher score of the top rank that they tide in.
+        # We MUST NOT do this, because this would destroy the zero sum property of our game
+        # and the neural network might learn to always play perfect ties, as this leads to the
+        # biggest expected value for everyone (and as it's trained by selfplay, it can easily
+        # achieve this, as every client is on page with this perfect game plan)
+        # TODO: Write about this in the thesis, it's an important point of game theory
+        for rank, players in ranks.items():
+            if len(players) == 0:
+                continue
+
+            total_score = 0
+            for i in range(0, len(players)):
+                total_score = total_score + self._score_for_rank(rank + i)
+            score = total_score / len(players)
+
+            for player in players:
+                scores[player] = score
+
+        return scores
+
+    def _rank_from_stone_counts(self, stone_counts):
+        sorted_counts = sorted(stone_counts, key=lambda entry: entry[1], reverse=True)
+
+        current_rank = 0
+        current_iteration = 0
+        last_stone_count = -1
+        ranks = {rank: [] for rank in range(1, 9)}
+        for player, stone_count in sorted_counts:
+            current_iteration = current_iteration + 1
+            if last_stone_count != stone_count:
+                current_rank = current_iteration
+                last_stone_count = stone_count
+
+            ranks[current_rank].append(player)
+
+        return ranks
+
+    def _score_for_rank(self, rank):
+        if rank == 1:
+            return 0.55
+        if rank == 2:
+            return 0.25
+        if rank == 3:
+            return 0.1
+        if rank == 4:
+            return 0.07
+        if rank == 5:
+            return 0.03
+
+        return 0.0
+
 
 class Board:
     """The current assignment and shape of the game board.
@@ -356,6 +419,17 @@ class Board:
 
     def is_player_at(self, pos):
         return pos in self.board and self.board[pos] in PLAYERS
+
+    def count(self, fields):
+        """Count the number of individual fields on the board. Counts only the values given in fields."""
+        result = {field: 0 for field in fields}
+        for x in range(0, self.width):
+            for y in range(0, self.height):
+                tmp = self.board[(x, y)]
+                if tmp in fields:
+                    result[tmp] = result[tmp] + 1
+
+        return result
 
     def __string__(self):
         str_list = list()

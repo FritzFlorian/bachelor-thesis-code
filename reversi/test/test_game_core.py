@@ -70,6 +70,41 @@ class TestBoardParsing(unittest.TestCase):
         self.assertEqual(board.transitions[((0, 1), Direction.BOTTOM)], ((0, 1), Direction.RIGHT))
 
 
+class TestScoring(unittest.TestCase):
+    def test_normal_scoring(self):
+        board = Board("""\
+        2
+        1
+        0 0
+        3 3
+        1 0 0
+        0 0 0
+        0 0 0
+        """)
+        game = GameState(board)
+        scores = game.calculate_scores()
+
+        self.assertEqual(scores[PLAYER_ONE], 0.55)
+        self.assertEqual(scores[PLAYER_TWO], 0.25)
+
+    def test_tie_scoring(self):
+        board = Board("""\
+        3
+        1
+        0 0
+        3 3
+        1 2 0
+        0 0 0
+        0 0 0
+        """)
+        game = GameState(board)
+        scores = game.calculate_scores()
+
+        self.assertEqual(scores[PLAYER_ONE], 0.4)
+        self.assertEqual(scores[PLAYER_TWO], 0.4)
+        self.assertEqual(scores[PLAYER_THREE], 0.1)
+
+
 class TestMoveExecution(unittest.TestCase):
     def test_get_possible_moves_walk_bottom(self):
         board = Board("""\
