@@ -1,3 +1,7 @@
+from reversi.game_core import GameState, Field
+import copy
+
+
 class NeuralNetworkExecutor:
     """Allows the evaluation of a given game state. Coordinates requests from different threads.
 
@@ -109,5 +113,74 @@ class Evaluation:
 
     Can be transformed to normal form and back.
     In normal form the currently active player is player one (this should make it easier for the nn)."""
+    def __init__(self, game_state: GameState):
+        self.game_state = game_state
 
+        # Add dummy values for move probabilities and expected game results
+        next_moves = self.game_state.get_next_possible_moves()
+        self.probabilities = dict()
+        for move in next_moves:
+            (_, pos, choice) = move.last_move
+            self.probabilities[(pos, choice)] = 0.0
+        self.expected_result = dict()
+        for player in game_state.players:
+            self.expected_result[player] = 0.0
 
+        # Keep it to be able to transform to/from normal form
+        (self.active_player, _, _) = next_moves[0].last_move
+
+    def convert_to_normal(self):
+        """Converts the evaluation to a form where the next active player is player one."""
+        next_moves = self.game_state.get_next_possible_moves()
+        (current_active_player, _, _) = next_moves[0].last_move
+
+        # Active Player is already player one
+        if current_active_player == Field.PLAYER_ONE:
+            return
+
+        rotation_amount = self.game_state.board.n_players - current_active_player.to_int() + 1
+        self._rotate_players(rotation_amount)
+
+    def convert_from_normal(self):
+        """Converts the evaluation from normal form to its original form."""
+        next_moves = self.game_state.get_next_possible_moves()
+        (current_active_player, _, _) = next_moves[0].last_move
+
+        # Active Player is already player one
+        if current_active_player == self.active_player:
+            return
+
+        rotation_amount = self.active_player.to_int() - 1
+        self._rotate_players(rotation_amount)
+
+    def _rotate_players(self, rotation_amount):
+        """Rotate player numbers. Rotation by one means player one will be player two, and so on."""
+        # Rotate the pieces on the board
+        for i in range(rotation_amount):
+            self.game_state.board.execute_inversion()
+
+        n_players = self.game_state.board.n_players
+        # Adjust values describing the current game state
+        if self.game_state.last_move:
+            (player, pos, choice) = self.game_state.last_move
+            if isinstance(choice, Field):
+                choice = choice.rotate_by(rotation_amount, n_players)
+            self.game_state.last_move = (player.rotate_by(rotation_amount, n_players), pos, choice)
+
+        old_player_bombs = copy.deepcopy(self.game_state.player_bombs)
+        for player, bombs in old_player_bombs.items():
+            self.game_state.player_bombs[player.rotate_by(rotation_amount, n_players)] = bombs
+
+        old_player_overwrites = copy.deepcopy(self.game_state.player_overwrites)
+        for player, overwrites in old_player_overwrites.items():
+            self.game_state.player_overwrites[player.rotate_by(rotation_amount, n_players)] = overwrites
+
+        old_players = copy.deepcopy(self.game_state.players)
+        self.game_state.players = set()
+        for player in old_players:
+            self.game_state.players.add(player.rotate_by(rotation_amount, n_players))
+
+        # Rotate evaluation stats
+        old_expected_result = copy.deepcopy(self.expected_result)
+        for player, result in old_expected_result.items():
+            self.expected_result[player.rotate_by(rotation_amount, n_players)] = result

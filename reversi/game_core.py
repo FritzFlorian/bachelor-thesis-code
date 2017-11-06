@@ -410,6 +410,17 @@ class Field(Enum):
 
     HOLE = '-'
 
+    def to_int(self):
+        return ord(self.value) - ord(Field.PLAYER_ONE.value) + 1
+
+    def rotate_by(self, amount, n_players):
+        new_player_number = ((self.to_int() - 1 + amount) % n_players) + 1
+        return Field.int_to_player(new_player_number)
+
+    @staticmethod
+    def int_to_player(number):
+        return Field(chr(number + ord(Field.PLAYER_ONE.value) - 1))
+
     def __lt__(self, other):
         return ord(self.value) < ord(other.value)
 
