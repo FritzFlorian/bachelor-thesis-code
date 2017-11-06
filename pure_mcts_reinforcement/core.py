@@ -143,11 +143,31 @@ class MCTSExecutor:
     is to run a specific number of simulation steps starting at a given game state.
 
     It returns the target move probabilities and the target value of the given game sate."""
-    # TODO: Initialisation and Reuse of older runs
-    # TODO: pass game state and NNExecutor on init
+    def __init__(self, game_state, nn_executor, root_node: MCTSNode=None):
+        self.nn_executor = nn_executor
+        self.start_game_state = game_state
+        self.root_node = root_node
 
     def run(self, n_simulations):
-        raise NotImplementedError("Run #n_simulations simulation steps on the tree and return an target evaluation.")
+        if not self.root_node:
+            self.root_node = MCTSNode(1.0)
+
+        for i in range(n_simulations):
+            self.root_node.run_simulation_step(self.nn_executor, self.start_game_state)
+
+    def move_probabilities(self, temperature):
+        """Returns each move and its probability. Temperature controls how much extreme values are damped."""
+        exponent = 1.0 / temperature
+
+        visit_sum = 0
+        exponentiated_visit_counts = dict()
+        for move, child in self.root_node.children:
+            exponentiated_visit_count = child.visits ** exponent
+            visit_sum = visit_sum + exponentiated_visit_count
+
+            exponentiated_visit_counts[move] = exponentiated_visit_count
+
+        return {move: count / visit_sum for move, count in exponentiated_visit_counts}
 
 
 class MCTSNode:
