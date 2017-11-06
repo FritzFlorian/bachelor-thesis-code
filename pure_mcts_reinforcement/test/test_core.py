@@ -19,7 +19,7 @@ class TestEvaluation(unittest.TestCase):
         game_state = game_state.get_next_possible_moves()[0]
 
         evaluation = Evaluation(game_state)
-        evaluation.probabilities[((1, 2), None)] = 1.0
+        evaluation.probabilities[(Field.PLAYER_ONE, (1, 2), None)] = 1.0
         evaluation.expected_result[Field.PLAYER_ONE] = 0.7
         evaluation.expected_result[Field.PLAYER_TWO] = 0.2
         evaluation.expected_result[Field.PLAYER_THREE] = 0.1
@@ -27,6 +27,8 @@ class TestEvaluation(unittest.TestCase):
         evaluation.convert_to_normal()
         self.assertEqual(evaluation.game_state.next_player(), Field.PLAYER_ONE)
         self.assertEqual(evaluation.expected_result[Field.PLAYER_THREE], 0.7)
+        self.assertFalse((Field.PLAYER_ONE, (1, 2), None) in evaluation.probabilities)
+        self.assertEqual(evaluation.probabilities[(Field.PLAYER_THREE, (1, 2), None)], 1.0)
         self.assertEqual(evaluation.game_state.board[(1, 0)], Field.PLAYER_THREE)
         self.assertEqual(evaluation.game_state.player_overwrites[Field.PLAYER_THREE], 0)
         self.assertEqual(evaluation.game_state.player_overwrites[Field.PLAYER_ONE], 1)
@@ -34,6 +36,8 @@ class TestEvaluation(unittest.TestCase):
         evaluation.convert_from_normal()
         self.assertEqual(evaluation.game_state.next_player(), Field.PLAYER_TWO)
         self.assertEqual(evaluation.expected_result[Field.PLAYER_ONE], 0.7)
+        self.assertFalse((Field.PLAYER_THREE, (1, 2), None) in evaluation.probabilities)
+        self.assertEqual(evaluation.probabilities[(Field.PLAYER_ONE, (1, 2), None)], 1.0)
         self.assertEqual(evaluation.game_state.board[(1, 0)], Field.PLAYER_ONE)
         self.assertEqual(evaluation.game_state.player_overwrites[Field.PLAYER_ONE], 0)
         self.assertEqual(evaluation.game_state.player_overwrites[Field.PLAYER_THREE], 1)
