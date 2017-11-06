@@ -1,6 +1,7 @@
 from reversi.game_core import GameState, Field
 import copy
 import math
+import numpy as np
 
 
 class Evaluation:
@@ -254,11 +255,51 @@ class SelfplayExecutor:
 
     This should run one game of selfplay and return a list of all states and all
     corresponding probability/value targets that can then be used as training data."""
-    # TODO: pass game state and NNExecutor on init
-    # TODO: pass simulation runs
+    def __init__(self, game_state, nn_executor, n_simulations_per_move):
+        self.current_executor = MCTSExecutor(game_state, nn_executor)
+        self.nn_executor = nn_executor
+        self.n_simulations_per_move = n_simulations_per_move
+        self.evaluations = []
+        self.temperature = 2.0
 
     def run(self):
-        raise NotImplementedError("Run simulation and return target evaluations.")
+        while True:
+            # Make sure the game is not finished
+            next_states = self.current_executor.start_game_state.get_next_possible_moves()
+            if len(next_states) == 0:
+                break
+
+            # Run the simulation
+            self.current_executor.run(self.n_simulations_per_move)
+
+            # Take a snapshot for training
+            self._create_evaluation()
+
+            # Select next move
+            move_probabilities = self.current_executor.move_probabilities(self.temperature).items()
+            moves = [item[0] for item in move_probabilities]
+            probabilities = [item[1] for item in move_probabilities]
+
+            # Execute the move
+            (player, pos, choice) = move = np.random.choice(moves, 1, p=probabilities)
+            new_game_state = self.current_executor.start_game_state.execute_move(player, pos, choice)
+
+            # Update our executor. We keep the part of the search tree that was selected.
+            selected_child = self.current_executor.root_node.children[move]
+            self.current_executor = MCTSExecutor(new_game_state, self.nn_executor, selected_child)
+
+        actual_results = self.current_executor.start_game_state.calculate_scores()
+        for evaluation in self.evaluations:
+            evaluation.expected_result = actual_results
+
+        return self.evaluations
+
+    def _create_evaluation(self):
+        """Creates an evaluation of the current MCTSExecutor and adds it to self.evaluations."""
+        evaluation = Evaluation(self.current_executor.start_game_state)
+        evaluation.probabilities = self.current_executor.move_probabilities(self.temperature)
+
+        self.evaluations.append(evaluation)
 
 
 class TrainingExecutor:
