@@ -474,10 +474,73 @@ class TrainingExecutor(threading.Thread):
 
 class ModelEvaluator:
     """Compares two neural network configurations by playing out a small tournament."""
-    # TODO: Pass neural networks and maps to be played
+    def __init__(self, nn_executor_one, nn_executor_two, map_paths):
+        self.nn_executor_one = nn_executor_one
+        self.nn_executor_two = nn_executor_two
+        self.map_paths = map_paths
 
-    def run(self, n_games):
-        raise NotImplementedError("Play a tournament with #n_games. Return the win-rate of the new network.")
+    def run(self, n_games, n_simulations):
+        total_scores = [0, 0]
+
+        for i in range(n_games):
+            map_path = np.random.choice(self.map_paths, 1)
+            scores = self._play_game(map_path, n_simulations)
+
+            # TODO: Make universal for more then two players
+            for j in range(2):
+                total_scores[j] = total_scores[j] + scores[j]
+
+        return total_scores
+
+    def _play_game(self, map_path, n_simulations):
+        with open(map_path, 'r') as file:
+            board = file.read()
+        current_game_state = GameState(board)
+
+        # TODO: Make universal for more then two players
+        tmp = [Field.PLAYER_ONE, Field.PLAYER_TWO]
+        np.random.shuffle(tmp)
+
+        player_mapping = {tmp[0]: 0, tmp[1]: 1}
+
+        while True:
+            next_moves = current_game_state.get_next_possible_moves()
+            if len(next_moves) == 0:
+                break
+
+            # Find the correct nn to execute this move
+            (current_player, _, _) = next_moves[0]
+            executor = None
+            if player_mapping[current_player] == 0:
+                executor = self.nn_executor_one
+            else:
+                executor = self.nn_executor_two
+
+            # Run the actual simulation to find a move
+            mcts_executor = MCTSExecutor(current_game_state, executor)
+            mcts_executor.run(n_simulations)
+
+            # Find the best move
+            selected_move = None
+            best_probability = -1.0
+            for move, probability in mcts_executor.move_probabilities(1):
+                if probability > best_probability:
+                    best_probability = probability
+                    selected_move = move
+
+            # Execute the move
+            player, pos, choice = selected_move
+            current_game_state = current_game_state.execute_move(player, pos, choice)
+
+        # return the scores
+        scores = current_game_state.calculate_scores()
+
+        # TODO: Make universal for more then two players
+        result = [0, 0]
+        result[player_mapping[Field.PLAYER_ONE]] = scores[Field.PLAYER_ONE]
+        result[player_mapping[Field.PLAYER_TWO]] = scores[Field.PLAYER_TWO]
+
+        return result
 
 
 class AITrivialEvaluator:
