@@ -137,16 +137,12 @@ class NeuralNetworkExecutor(threading.Thread):
     The class can for example transparently handle batch execution of the network by blocking
     calls to evaluate game states until a full batch is reached."""
 
-    def __init__(self, neural_network: NeuralNetwork, weights_file=None, scope_name=None):
+    def __init__(self, neural_network: NeuralNetwork, weights_file=None):
         """Configure the NN. This does not create any tf objects. For that the executor has to be started."""
         super().__init__()
         self.neural_network = neural_network
         self.weights_file = weights_file
         self.graph = tf.Graph()
-        if scope_name:
-            self.scope_name = scope_name
-        else:
-            self.scope_name = "{}_execution_{}".format(weights_file, round(time.time() * 1000, 0))
 
         # TODO: add more sophisticated synchronization to allow batching. It's ok for a first test.
         self.request_queue = queue.Queue(1)
@@ -154,8 +150,7 @@ class NeuralNetworkExecutor(threading.Thread):
 
     def run(self):
         with self.graph.as_default():
-            with tf.name_scope(self.scope_name):
-                self.neural_network.construct_network()
+            self.neural_network.construct_network()
             with tf.Session() as sess:
                 self.neural_network.init_network()
 
@@ -353,15 +348,11 @@ class TrainingExecutor(threading.Thread):
     This is managing the training set, test set and training process.
     The class is given an initial weight configuration. It then is fed example data.
     It has to manage the example data internally, split it into a training and test set."""
-    def __init__(self, neural_network: NeuralNetwork, weights_file, data_dir, scope_name=None):
+    def __init__(self, neural_network: NeuralNetwork, weights_file, data_dir):
         super().__init__()
         self.neural_network = neural_network
         self.weights_file = weights_file
         self.graph = tf.Graph()
-        if scope_name:
-            self.scope_name = scope_name
-        else:
-            self.scope_name = "{}_training_{}".format(weights_file, round(time.time() * 1000, 0))
 
         # We will keep the training and test data in a local folder.
         # This class is only responsible for somehow doing the training,
@@ -388,8 +379,7 @@ class TrainingExecutor(threading.Thread):
 
     def run(self):
         with self.graph.as_default():
-            with tf.name_scope(self.scope_name):
-                self.neural_network.construct_network()
+            self.neural_network.construct_network()
             with tf.Session() as sess:
                 self.neural_network.init_network()
                 self.neural_network.load_weights(sess, self.weights_file)
