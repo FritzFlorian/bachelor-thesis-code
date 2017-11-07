@@ -31,7 +31,10 @@ class Evaluation:
             self.expected_result[player] = 0.0
 
         # Keep it to be able to transform to/from normal form
-        (self.active_player, _, _) = next_moves[0].last_move
+        if len(next_moves) > 0:
+            (self.active_player, _, _) = next_moves[0].last_move
+        else:
+            self.active_player = None
 
     def convert_to_normal(self):
         """Converts the evaluation to a form where the next active player is player one."""
@@ -109,54 +112,70 @@ class NeuralNetwork:
     def init_network(self):
         raise NotImplementedError("Run initialisation code for your network.")
 
-    def execute_batch(self, game_states):
+    def execute_batch(self, sess, game_states):
         raise NotImplementedError("Add implementation that takes game_states and executes them as a batch.")
 
-    def train_batch(self, evaluations):
+    def train_batch(self, sess, evaluations):
         raise NotImplementedError("Add implementation that executes one batch training step.")
 
-    def save_weights(self, filename):
+    def save_weights(self, sess, filename):
         raise NotImplementedError("Add implementation that saves the weights of this network to a checkpoint.")
 
-    def load_weights(self, filename):
+    def load_weights(self, sess, filename):
         raise NotImplementedError("Add implementation that loads the weights of this network to a checkpoint.")
 
-    def log_loss(self, tf_file_writer, evaluations):
+    def log_loss(self, tf_file_writer, evaluations, epoch):
         raise NotImplementedError("Add implementation to write average losses to the stats file and return them.")
 
 
-class MCTSExecutor:
-    """Handles the simulation of MCTS in one specific game state.
+class NeuralNetworkExecutor(threading.Thread):
+    """Allows the evaluation of a given game state. Coordinates requests from different threads.
 
-    This excludes actually progressing the game. The sole purpose of this class
-    is to run a specific number of simulation steps starting at a given game state.
+    This is essentially a wrapper for a neural network instance with fixed weights
+    that sole purpose is to be executed for different game states.
 
-    It returns the target move probabilities and the target value of the given game sate."""
-    def __init__(self, game_state, nn_executor, root_node: MCTSNode=None):
-        self.nn_executor = nn_executor
-        self.start_game_state = game_state
-        self.root_node = root_node
+    The class can for example transparently handle batch execution of the network by blocking
+    calls to evaluate game states until a full batch is reached."""
 
-    def run(self, n_simulations):
-        if not self.root_node:
-            self.root_node = MCTSNode(1.0)
+    def __init__(self, neural_network: NeuralNetwork, weights_file=None, scope_name=None):
+        """Configure the NN. This does not create any tf objects. For that the executor has to be started."""
+        super().__init__()
+        self.neural_network = neural_network
+        self.weights_file = weights_file
+        self.graph = tf.Graph()
+        if scope_name:
+            self.scope_name = scope_name
+        else:
+            self.scope_name = "{}_execution_{}".format(weights_file, round(time.time() * 1000, 0))
 
-        for i in range(n_simulations):
-            self.root_node.run_simulation_step(self.nn_executor, self.start_game_state)
+        # TODO: add more sophisticated synchronization to allow batching. It's ok for a first test.
+        self.request_queue = queue.Queue(1)
+        self.response_queue = queue.Queue(1)
 
-    def move_probabilities(self, temperature):
-        """Returns each move and its probability. Temperature controls how much extreme values are damped."""
-        exponent = 1.0 / temperature
+    def run(self):
+        with self.graph.as_default():
+            with tf.name_scope(self.scope_name):
+                self.neural_network.construct_network()
+            with tf.Session() as sess:
+                self.neural_network.init_network()
 
-        visit_sum = 0
-        exponentiated_visit_counts = dict()
-        for move, child in self.root_node.children:
-            exponentiated_visit_count = child.visits ** exponent
-            visit_sum = visit_sum + exponentiated_visit_count
+                if self.weights_file:
+                    self.neural_network.load_weights(sess, self.weights_file)
 
-            exponentiated_visit_counts[move] = exponentiated_visit_count
+                # Do work
+                while True:
+                    game_state = self.request_queue.get()
+                    evaluation = self.neural_network.execute_batch(sess, [game_state])[0]
+                    self.response_queue.put(evaluation)
 
-        return {move: count / visit_sum for move, count in exponentiated_visit_counts}
+    def execute(self, game_state) -> Evaluation:
+        """Executes a neural network to evaluate a given game state.
+
+        Returns the evaluation generated by the network.
+        Might block for a while because other evaluations are being performed."""
+
+        self.request_queue.put(game_state)
+        return self.response_queue.get()
 
 
 class MCTSNode:
@@ -186,7 +205,7 @@ class MCTSNode:
             return result
         else:
             next_states = game_state.get_next_possible_moves()
-            if len(next_states) < 0:
+            if len(next_states) <= 0:
                 self.total_action_value = game_state.calculate_scores()
                 self.is_leave = True
             else:
@@ -220,7 +239,10 @@ class MCTSNode:
             (player, _, _) = move
 
             u = c_puct * child.probability * (sqrt_total_child_visits/(1 + child.visits))
-            q = child.mean_action_value[player]
+            if child.mean_action_value:
+                q = child.mean_action_value[player]
+            else:
+                q = 0
 
             move_value = u + q
             if move_value > best_move_value:
@@ -236,6 +258,40 @@ class MCTSNode:
 
     def is_expanded(self):
         return not not self.children
+
+
+class MCTSExecutor:
+    """Handles the simulation of MCTS in one specific game state.
+
+    This excludes actually progressing the game. The sole purpose of this class
+    is to run a specific number of simulation steps starting at a given game state.
+
+    It returns the target move probabilities and the target value of the given game sate."""
+    def __init__(self, game_state, nn_executor, root_node: MCTSNode=None):
+        self.nn_executor = nn_executor
+        self.start_game_state = game_state
+        self.root_node = root_node
+
+    def run(self, n_simulations):
+        if not self.root_node:
+            self.root_node = MCTSNode(1.0)
+
+        for i in range(n_simulations):
+            self.root_node.run_simulation_step(self.nn_executor, self.start_game_state)
+
+    def move_probabilities(self, temperature):
+        """Returns each move and its probability. Temperature controls how much extreme values are damped."""
+        exponent = 1.0 / temperature
+
+        visit_sum = 0
+        exponentiated_visit_counts = dict()
+        for move, child in self.root_node.children.items():
+            exponentiated_visit_count = child.visits ** exponent
+            visit_sum = visit_sum + exponentiated_visit_count
+
+            exponentiated_visit_counts[move] = exponentiated_visit_count
+
+        return {move: count / visit_sum for move, count in exponentiated_visit_counts.items()}
 
 
 class SelfplayExecutor:
@@ -269,7 +325,8 @@ class SelfplayExecutor:
             probabilities = [item[1] for item in move_probabilities]
 
             # Execute the move
-            (player, pos, choice) = move = np.random.choice(moves, 1, p=probabilities)
+            index = np.random.choice(len(moves), p=probabilities)
+            (player, pos, choice) = move = moves[index]
             new_game_state = self.current_executor.start_game_state.execute_move(player, pos, choice)
 
             # Update our executor. We keep the part of the search tree that was selected.
@@ -288,54 +345,6 @@ class SelfplayExecutor:
         evaluation.probabilities = self.current_executor.move_probabilities(self.temperature)
 
         self.evaluations.append(evaluation)
-
-
-class NeuralNetworkExecutor(threading.Thread):
-    """Allows the evaluation of a given game state. Coordinates requests from different threads.
-
-    This is essentially a wrapper for a neural network instance with fixed weights
-    that sole purpose is to be executed for different game states.
-
-    The class can for example transparently handle batch execution of the network by blocking
-    calls to evaluate game states until a full batch is reached."""
-
-    def __init__(self, neural_network: NeuralNetwork, weights_file, scope_name=None):
-        """Configure the NN. This does not create any tf objects. For that the executor has to be started."""
-        super().__init__()
-        self.neural_network = neural_network
-        self.weights_file = weights_file
-        self.graph = tf.Graph()
-        if scope_name:
-            self.scope_name = scope_name
-        else:
-            self.scope_name = "{}_execution_{}".format(weights_file, round(time.time() * 1000, 0))
-
-        # TODO: add more sophisticated synchronization to allow batching. It's ok for a first test.
-        self.request_queue = queue.Queue(1)
-        self.response_queue = queue.Queue(1)
-
-    def run(self):
-        with self.graph.as_default():
-            with tf.name_scope(self.scope_name):
-                self.neural_network.construct_network()
-            with tf.Session() as sess:
-                self.neural_network.init_network()
-                self.neural_network.load_weights(self.weights_file)
-
-                # Do work
-                while True:
-                    game_state = self.request_queue.get()
-                    evaluation = self.neural_network.execute_batch([game_state])[0]
-                    self.response_queue.put(evaluation)
-
-    def execute(self, game_state) -> Evaluation:
-        """Executes a neural network to evaluate a given game state.
-
-        Returns the evaluation generated by the network.
-        Might block for a while because other evaluations are being performed."""
-
-        self.response_queue.put(game_state)
-        return self.response_queue.get()
 
 
 class TrainingExecutor(threading.Thread):
@@ -375,6 +384,7 @@ class TrainingExecutor(threading.Thread):
         self.train_response_queue = queue.Queue(1)
         self.test_loss_response_queue = queue.Queue(1)
         self.train_loss_response_queue = queue.Queue(1)
+        self.save_response_queue = queue.Queue(1)
 
     def run(self):
         with self.graph.as_default():
@@ -382,7 +392,7 @@ class TrainingExecutor(threading.Thread):
                 self.neural_network.construct_network()
             with tf.Session() as sess:
                 self.neural_network.init_network()
-                self.neural_network.load_weights(self.weights_file)
+                self.neural_network.load_weights(sess, self.weights_file)
 
                 # Do work
                 while True:
@@ -398,6 +408,9 @@ class TrainingExecutor(threading.Thread):
                         file_writer, batch_size = args
                         result = self._log_test_loss_internal(file_writer, batch_size)
                         self.train_loss_response_queue.put(result)
+                    elif type == 'save':
+                        result = self.neural_network.save_weights(sess, args)
+                        self.save_response_queue.put(result)
 
     def _get_n_training(self):
         with self.lock:
@@ -422,22 +435,28 @@ class TrainingExecutor(threading.Thread):
     def add_examples(self, evaluations):
         train_evals, test_evals = model_selection.train_test_split(evaluations, test_size=0.2)
         for train_eval in train_evals:
-            with open(os.join(self.training_dir, "{0:010d}.pickle".format(self._add_to_n_training(1))), 'wb') as file:
+            with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(self._get_n_training())), 'wb') as file:
                 pickle.dump(train_eval, file)
+            self._add_to_n_training(1)
         for train_eval in train_evals:
-            with open(os.join(self.test_dir, "{0:010d}.pickle".format(self._add_to_n_test(1))), 'wb') as file:
+            with open(os.path.join(self.test_dir, "{0:010d}.pickle".format(self._get_n_test(1))), 'wb') as file:
                 pickle.dump(train_eval, file)
+            self._add_to_n_test(1)
+
+    def save(self, filename):
+        self.request_queue.put(('train', filename))
+        return self.save_response_queue.get()
 
     def run_training_batch(self, batch_size=32):
         self.request_queue.put(('train', batch_size))
         return self.train_response_queue.get()
 
     def _run_train_batch_internal(self, batch_size):
-        eval_numbers = np.random.randint(0, self._n_training, batch_size)
+        eval_numbers = np.random.randint(0, self._n_training, size=batch_size)
 
         evals = []
         for eval_number in eval_numbers:
-            with open(os.join(self.training_dir, "{0:010d}.pickle".format(eval_number)), 'rb') as file:
+            with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(eval_number)), 'rb') as file:
                 evals.append(pickle.load(file))
 
         self.neural_network.train_batch(evals)
@@ -448,11 +467,11 @@ class TrainingExecutor(threading.Thread):
         return self.test_loss_response_queue.get()
 
     def _log_test_loss_internal(self, file_writer, batch_size):
-        test_numbers = np.random.randint(0, self._n_test, batch_size)
+        test_numbers = np.random.randint(0, self._n_test, size=batch_size)
 
         evals = []
         for test_number in test_numbers:
-            with open(os.join(self.test_dir, "{0:010d}.pickle".format(test_number)), 'rb') as file:
+            with open(os.path.join(self.test_dir, "{0:010d}.pickle".format(test_number)), 'rb') as file:
                 evals.append(pickle.load(file))
 
         return self.neural_network.log_loss(file_writer, evals)
@@ -462,11 +481,11 @@ class TrainingExecutor(threading.Thread):
         return self.train_loss_response_queue.get()
 
     def _log_training_loss_internal(self, file_writer, batch_size):
-        eval_numbers = np.random.randint(0, self._n_training, batch_size)
+        eval_numbers = np.random.randint(0, self._n_training, size=batch_size)
 
         evals = []
         for eval_number in eval_numbers:
-            with open(os.join(self.training_dir, "{0:010d}.pickle".format(eval_number)), 'rb') as file:
+            with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(eval_number)), 'rb') as file:
                 evals.append(pickle.load(file))
 
         return self.neural_network.log_loss(file_writer, evals)
