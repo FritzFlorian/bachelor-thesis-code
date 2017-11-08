@@ -237,7 +237,9 @@ class MCTSNode:
             if child.mean_action_value:
                 q = child.mean_action_value[player]
             else:
-                q = 0
+                # TODO: See how to change the rating of reversi to set this properly
+                # This should be 'neutral' for unevaluated nodes
+                q = 0.5
 
             move_value = u + q
             if move_value > best_move_value:
@@ -388,7 +390,7 @@ class TrainingExecutor(threading.Thread):
                 while True:
                     (type, args) = self.request_queue.get()
                     if type == 'train':
-                        result = self._run_train_batch_internal(args)
+                        result = self._run_train_batch_internal(sess, args)
                         self.train_response_queue.put(result)
                     elif type == 'log_test_loss':
                         file_writer, batch_size = args
@@ -425,23 +427,23 @@ class TrainingExecutor(threading.Thread):
     def add_examples(self, evaluations):
         train_evals, test_evals = model_selection.train_test_split(evaluations, test_size=0.2)
         for train_eval in train_evals:
-            with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(self._get_n_training())), 'wb') as file:
-                pickle.dump(train_eval, file)
+            with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(self._get_n_training())), 'wb') as train_file:
+                pickle.dump(train_eval, train_file)
             self._add_to_n_training(1)
-        for train_eval in train_evals:
-            with open(os.path.join(self.test_dir, "{0:010d}.pickle".format(self._get_n_test(1))), 'wb') as file:
-                pickle.dump(train_eval, file)
+        for test_eval in test_evals:
+            with open(os.path.join(self.test_dir, "{0:010d}.pickle".format(self._get_n_test())), 'wb') as test_file:
+                pickle.dump(test_eval, test_file)
             self._add_to_n_test(1)
 
     def save(self, filename):
-        self.request_queue.put(('train', filename))
+        self.request_queue.put(('save', filename))
         return self.save_response_queue.get()
 
     def run_training_batch(self, batch_size=32):
         self.request_queue.put(('train', batch_size))
         return self.train_response_queue.get()
 
-    def _run_train_batch_internal(self, batch_size):
+    def _run_train_batch_internal(self, sess, batch_size):
         eval_numbers = np.random.randint(0, self._n_training, size=batch_size)
 
         evals = []
@@ -449,7 +451,7 @@ class TrainingExecutor(threading.Thread):
             with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(eval_number)), 'rb') as file:
                 evals.append(pickle.load(file))
 
-        self.neural_network.train_batch(evals)
+        self.neural_network.train_batch(sess, evals)
         return None
 
     def log_test_loss(self, file_writer, batch_size=32):
