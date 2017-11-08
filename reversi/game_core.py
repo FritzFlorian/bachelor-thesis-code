@@ -253,16 +253,12 @@ class GameState:
         return ranks
 
     def _score_for_rank(self, rank):
+        # TODO: Add better scoring for more than two players
         if rank == 1:
-            return 0.55
+            return 1.0
         if rank == 2:
-            return 0.25
-        if rank == 3:
-            return 0.1
-        if rank == 4:
-            return 0.07
-        if rank == 5:
-            return 0.03
+            return 0.0
+
 
         return 0.0
 
