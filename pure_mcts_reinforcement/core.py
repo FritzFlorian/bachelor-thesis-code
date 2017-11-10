@@ -30,10 +30,7 @@ class Evaluation:
             self.expected_result[player] = 0.0
 
         # Keep it to be able to transform to/from normal form
-        if len(next_moves) > 0:
-            (self.active_player, _, _) = next_moves[0].last_move
-        else:
-            self.active_player = None
+        self.active_player = game_state.calculate_next_player()
 
     def convert_to_normal(self):
         """Converts the evaluation to a form where the next active player is player one."""
@@ -98,6 +95,20 @@ class Evaluation:
         self.probabilities = dict()
         for (player, pos, choice), probability in old_probabilities.items():
             self.probabilities[(player.rotate_by(rotation_amount, n_players), pos, choice)] = probability
+
+    def mirror_vertical(self):
+        # No deep copy needed
+        old_board = copy.copy(self.game_state.board._board)
+        for i in range(self.game_state.board.height):
+            self.game_state.board._board[self.game_state.board.height - i - 1] = old_board[i]
+
+        # Moves also need to be mirrored
+        old_probabilities = copy.deepcopy(self.probabilities)
+        self.probabilities = dict()
+        for (player, pos, choice), probability in old_probabilities.items():
+            x, y = pos
+            new_y = self.game_state.board.height - y - 1
+            self.probabilities[(player, (x, new_y), choice)] = probability
 
 
 class NeuralNetwork:

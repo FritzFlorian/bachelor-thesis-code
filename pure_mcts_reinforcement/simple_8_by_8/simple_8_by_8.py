@@ -1,10 +1,11 @@
 import pure_mcts_reinforcement.core as core
 import tensorflow as tf
 import numpy as np
+import random
 from reversi.game_core import Field, Board, GameState
 
-BOARD_HEIGHT = 10
-BOARD_WIDTH = 10
+BOARD_HEIGHT = 8
+BOARD_WIDTH = 8
 
 # Number of different possible states/contents of a
 # single field on the board.
@@ -15,16 +16,16 @@ L2_LOSS_WEIGHT = 1.0
 
 
 def main():
-    with open('simple10by10.map') as file:
+    with open('simple_8_by_8.map') as file:
         board = Board(file.read())
     initial_game_state = GameState(board)
 
-    # neural_network = SimpleNeuralNetwork()
-    # with tf.Graph().as_default():
-    #     neural_network.construct_network()
-    #     with tf.Session() as sess:
-    #         neural_network.init_network()
-    #         neural_network.save_weights(sess, './weights.ckpt')
+    neural_network = SimpleNeuralNetwork()
+    with tf.Graph().as_default():
+        neural_network.construct_network()
+        with tf.Session() as sess:
+            neural_network.init_network()
+            neural_network.save_weights(sess, './weights.ckpt')
 
     nn_executor = core.NeuralNetworkExecutor(SimpleNeuralNetwork(), './weights.ckpt')
     nn_executor.start()
@@ -33,10 +34,10 @@ def main():
 
     for i in range(5):
         print('Start Run {}'.format(i))
-        selfplay_executor = core.SelfplayExecutor(initial_game_state, nn_executor, 10)
+        selfplay_executor = core.SelfplayExecutor(initial_game_state, nn_executor, 100)
         evaluations = selfplay_executor.run()
         print(evaluations)
-        print(evaluations[0].probabilities[(Field.PLAYER_ONE, (6, 4), None)])
+        print(evaluations[0].probabilities[(Field.PLAYER_ONE, (4, 2), None)])
         training_executor.add_examples(evaluations)
 
     for j in range(250):
@@ -155,6 +156,11 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
 
         for evaluation in evaluations:
             evaluation.convert_to_normal()
+            if random.choice([True, False]):
+                evaluation.mirror_vertical()
+                evaluation.mirrored = True
+            else:
+                evaluation.mirrored = False
 
         inputs = [SimpleNeuralNetwork._game_board_to_input(evaluation.game_state.board) for evaluation in evaluations]
         outputs = sess.run([self.out_prob, self.out_value], feed_dict={self.raw_x: inputs})
@@ -172,6 +178,8 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             evaluations[i].expected_result[Field.PLAYER_TWO] = 1.0 - outputs[1][i][0]
 
         for evaluation in evaluations:
+            if evaluation.mirrored:
+                evaluation.mirror_vertical()
             evaluation.convert_from_normal()
 
         return evaluations
