@@ -152,6 +152,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
 
     def execute_batch(self, sess, game_states):
         evaluations = [core.Evaluation(game_state) for game_state in game_states]
+
         for evaluation in evaluations:
             evaluation.convert_to_normal()
 
@@ -180,18 +181,9 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         result = np.empty([board.height, board.width], dtype=int)
         for y in range(board.height):
             for x in range(board.width):
-                result[y][x] = SimpleNeuralNetwork._field_to_int(board[(x, y)])
+                result[y][x] = Field.to_int8(board[(x, y)])
 
         return result
-
-    @staticmethod
-    def _field_to_int(field):
-        if field == Field.EMPTY:
-            return 0
-        if field == Field.PLAYER_ONE:
-            return 1
-        if field == Field.PLAYER_TWO:
-            return 2
 
     @staticmethod
     def _probabilities_to_output(board, probabilities):

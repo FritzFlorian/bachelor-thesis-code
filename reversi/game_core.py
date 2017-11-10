@@ -3,7 +3,6 @@ from enum import Enum
 import io
 import copy
 import itertools
-import numpy as np
 
 
 class DisqualifiedError(Exception):
@@ -324,12 +323,14 @@ class Board:
         self.read_transitions(buf)
 
     def read_board(self, buf):
-        self._board = np.empty([self.height, self.width], np.int8)
+        self._board = []
 
         for y in range(self.height):
-            row = buf.readline().split()
+            input_row = buf.readline().split()
+            output_row = []
             for x in range(self.width):
-                self[(x, y)] = Field(row[x])
+                output_row.append(Field(input_row[x]))
+            self._board.append(output_row)
 
     def read_transitions(self, buf):
         for transition in buf:
@@ -499,7 +500,7 @@ class Board:
         if y < 0 or y >= self.height:
             raise KeyError('y not in board bounds!')
 
-        return Field.from_int8(self._board[y][x])
+        return self._board[y][x]
 
     def __setitem__(self, key, value):
         """Allows simple set operations on the board.
@@ -512,7 +513,7 @@ class Board:
         if y < 0 or y >= self.height:
             raise KeyError('y not in board bounds!')
 
-        self._board[y][x] = value.to_int8()
+        self._board[y][x] = value
 
     def __contains__(self, key):
         x, y = key

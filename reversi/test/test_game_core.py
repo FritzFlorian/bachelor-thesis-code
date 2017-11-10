@@ -51,14 +51,14 @@ class TestBoardParsing(unittest.TestCase):
         self.assertEqual(board.height, 2)
         self.assertEqual(board.width, 4)
 
-        self.assertEqual(board.board[(0, 0)], HOLE)
-        self.assertEqual(board.board[(1, 0)], EMPTY)
-        self.assertEqual(board.board[(2, 0)], PLAYER_ONE)
-        self.assertEqual(board.board[(3, 0)], PLAYER_TWO)
-        self.assertEqual(board.board[(0, 1)], EXPANSION)
-        self.assertEqual(board.board[(1, 1)], CHOICE)
-        self.assertEqual(board.board[(2, 1)], INVERSION)
-        self.assertEqual(board.board[(3, 1)], BONUS)
+        self.assertEqual(board[(0, 0)], HOLE)
+        self.assertEqual(board[(1, 0)], EMPTY)
+        self.assertEqual(board[(2, 0)], PLAYER_ONE)
+        self.assertEqual(board[(3, 0)], PLAYER_TWO)
+        self.assertEqual(board[(0, 1)], EXPANSION)
+        self.assertEqual(board[(1, 1)], CHOICE)
+        self.assertEqual(board[(2, 1)], INVERSION)
+        self.assertEqual(board[(3, 1)], BONUS)
 
     def test_parse_transitions(self):
         board = Board(TestBoardParsing.transition_board)
