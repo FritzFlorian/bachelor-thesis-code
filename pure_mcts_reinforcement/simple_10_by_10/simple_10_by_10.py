@@ -28,23 +28,22 @@ def main():
 
     nn_executor = core.NeuralNetworkExecutor(SimpleNeuralNetwork(), './weights.ckpt')
     nn_executor.start()
-    selfplay_executor = core.SelfplayExecutor(initial_game_state, nn_executor, 5)
     training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), './weights.ckpt', 'data')
     training_executor.start()
 
     for i in range(5):
         print('Start Run {}'.format(i))
+        selfplay_executor = core.SelfplayExecutor(initial_game_state, nn_executor, 10)
         evaluations = selfplay_executor.run()
         print(evaluations)
         print(evaluations[0].probabilities[(Field.PLAYER_ONE, (6, 4), None)])
         training_executor.add_examples(evaluations)
 
-        for j in range(3):
-            print('Start Training {}'.format(j))
-            training_executor.run_training_batch(32)
+    for j in range(250):
+        print('Start Training {}'.format(j))
+        training_executor.run_training_batch(32)
 
     training_executor.save('./weights.ckpt')
-
 
 
 class SimpleNeuralNetwork(core.NeuralNetwork):
@@ -163,8 +162,8 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             game_state = game_states[i]
             height = game_state.board.height
             width = game_state.board.width
-            # TODO: It's just horrible to execute the move EACH time, just to find the next player...
-            (player, _, _) = game_state.get_next_possible_moves()[0].last_move
+
+            player = game_state.calculate_next_player()
             for y in range(height):
                 for x in range(width):
                     evaluations[i].probabilities[(player, (x, y), None)] = outputs[0][i][y * width + x]

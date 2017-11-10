@@ -3,7 +3,6 @@ import copy
 import math
 import numpy as np
 import tensorflow as tf
-import time
 import threading
 import queue
 import os
@@ -38,20 +37,19 @@ class Evaluation:
 
     def convert_to_normal(self):
         """Converts the evaluation to a form where the next active player is player one."""
-        next_moves = self.game_state.get_next_possible_moves()
-        (current_active_player, _, _) = next_moves[0].last_move
+        current_active_player = self.game_state.calculate_next_player()
 
         # Active Player is already player one
         if current_active_player == Field.PLAYER_ONE:
             return
 
         rotation_amount = self.game_state.board.n_players - current_active_player.to_int() + 1
+
         self._rotate_players(rotation_amount)
 
     def convert_from_normal(self):
         """Converts the evaluation from normal form to its original form."""
-        next_moves = self.game_state.get_next_possible_moves()
-        (current_active_player, _, _) = next_moves[0].last_move
+        current_active_player = self.game_state.calculate_next_player()
 
         # Active Player is already player one
         if current_active_player == self.active_player:
@@ -86,6 +84,10 @@ class Evaluation:
         self.game_state.players = set()
         for player in old_players:
             self.game_state.players.add(player.rotate_by(rotation_amount, n_players))
+
+        if self.game_state._cached_next_player:
+            self.game_state._cached_next_player = \
+                self.game_state._cached_next_player.rotate_by(rotation_amount, n_players)
 
         # Rotate evaluation stats
         old_expected_result = copy.deepcopy(self.expected_result)
