@@ -31,6 +31,7 @@ class GameState:
     def __init__(self, board):
         self.board = board
         self.last_move = None
+        self._cached_next_player = None
         self.bomb_phase = False
 
         self.player_bombs = dict()
@@ -48,11 +49,13 @@ class GameState:
             possible = self.get_possible_moves_on_position(pos, player, True)
             for p in possible:
                 if p.last_move == (player, pos, choice):
+                    self._cached_next_player = player
                     return p
 
         possible = self.get_possible_bomb_move_on_position(pos, player)
         for p in possible:
             if p.last_move == (player, pos, choice):
+                self._cached_next_player = player
                 return p
 
         return None
@@ -106,6 +109,9 @@ class GameState:
 
                 possible_moves.append(new_game_state)
 
+        for move in possible_moves:
+            move._cached_next_player = None
+
         return possible_moves
 
     def get_possible_bomb_move_on_position(self, pos, player=None):
@@ -118,6 +124,7 @@ class GameState:
             return []
 
         new_game_state = copy.deepcopy(self)
+        new_game_state._cached_next_player = None
         new_game_state.player_bombs[player] = self.player_bombs[player] - 1
 
         new_game_state.board.execute_bomb_at(self.board, pos)
@@ -164,6 +171,9 @@ class GameState:
             for i in range(self.board.n_players):
                 possible_moves = self.get_possible_moves_for_player(player=next_player, use_overwrite=True)
                 if len(possible_moves) > 0:
+                    for move in possible_moves:
+                        move._cached_next_player = None
+                    self._cached_next_player = possible_moves[0].last_move[0]
                     return possible_moves
 
                 next_player = self.next_player(next_player)
@@ -173,9 +183,14 @@ class GameState:
         for i in range(self.board.n_players):
             possible_moves = self.get_possible_bomb_moves_for_player(player=next_player)
             if len(possible_moves) > 0:
+                for move in possible_moves:
+                    move._cached_next_player = None
+                self._cached_next_player = possible_moves[0].last_move[0]
                 return possible_moves
 
             next_player = self.next_player(next_player)
+
+        self._cached_next_player = None
         return []
 
     def next_player(self, player=None):
@@ -198,6 +213,22 @@ class GameState:
             new_player = Field(chr(new_raw_player + ord(Field.PLAYER_ONE.value)))
             if new_player in self.players:
                 return new_player
+
+        return None
+
+    def calculate_next_player(self):
+        """Finds the next player according to the player order AND possible moves.
+
+        This will actually find the next possible moves and derive the next player that can move.
+        (This is needed in reversi as there can be situations where one player can not move and
+        is skipped.)"""
+        if self._cached_next_player:
+            return self._cached_next_player
+
+        next_moves = self.get_next_possible_moves()
+        if len(next_moves) > 0:
+            self._cached_next_player = next_moves[0].last_move[0]
+            return next_moves[0].last_move[0]
 
         return None
 
