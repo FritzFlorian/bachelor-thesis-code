@@ -3,6 +3,7 @@ from enum import Enum
 import io
 import copy
 import itertools
+import numpy as np
 
 
 class DisqualifiedError(Exception):
@@ -290,7 +291,6 @@ class GameState:
         if rank == 2:
             return 0.0
 
-
         return 0.0
 
 
@@ -307,7 +307,7 @@ class Board:
 
         :param board_string: map encoded as a string
         """
-        self.board = dict()
+        self._board = None
         self.transitions = dict()
 
         buf = io.StringIO(board_string)
@@ -324,10 +324,12 @@ class Board:
         self.read_transitions(buf)
 
     def read_board(self, buf):
+        self._board = np.empty([self.height, self.width], np.int8)
+
         for y in range(self.height):
             row = buf.readline().split()
             for x in range(self.width):
-                self.board[(x, y)] = Field(row[x])
+                self[(x, y)] = Field(row[x])
 
     def read_transitions(self, buf):
         for transition in buf:
@@ -344,15 +346,15 @@ class Board:
             self.transitions[(end_pos, end_dir)] = (start_pos, Direction.mirror(start_dir))
 
     def execute_move(self, pos, player, use_overwrite=True):
-        if pos not in self.board:
+        if pos not in self:
             return 'error', None
 
         # Start with checks if the position is occupied
-        if self.board[pos] == Field.HOLE:
+        if self[pos] == Field.HOLE:
             return 'error', None
 
         need_overwrite = False
-        if self.is_player_at(pos) or self.board[pos] == Field.EXPANSION:
+        if self.is_player_at(pos) or self[pos] == Field.EXPANSION:
             need_overwrite = True
 
         if need_overwrite and not use_overwrite:
@@ -362,29 +364,29 @@ class Board:
         for dir in Direction:
             cur_captured = []
             cur_pos, cur_dir = self._next_pos(pos, dir)
-            while cur_pos in self.board and self._is_walkable(cur_pos, player) and cur_pos != pos:
+            while cur_pos in self and self._is_walkable(cur_pos, player) and cur_pos != pos:
                 cur_captured.append(cur_pos)
                 cur_pos, cur_dir = self._next_pos(cur_pos, cur_dir)
 
             # Need to end a line at our player
-            if cur_pos in self.board and self.board[cur_pos] == player and cur_pos != pos:
+            if cur_pos in self and self[cur_pos] == player and cur_pos != pos:
                 captured_positions = captured_positions + cur_captured
 
-        if len(captured_positions) <= 1 and self.board[pos] != Field.EXPANSION:
+        if len(captured_positions) <= 1 and self[pos] != Field.EXPANSION:
             return 'error', None
 
         next_board = copy.deepcopy(self)
         for capt_pos in captured_positions:
-            next_board.board[capt_pos] = player
+            next_board[capt_pos] = player
 
         if need_overwrite:
             return 'overwrite', next_board
-        if self.board[pos] == Field.CHOICE:
+        if self[pos] == Field.CHOICE:
             return 'choice', next_board
-        if self.board[pos] == Field.BONUS:
+        if self[pos] == Field.BONUS:
             return 'bonus', next_board
 
-        if self.board[pos] == Field.INVERSION:
+        if self[pos] == Field.INVERSION:
             next_board.execute_inversion()
         return 'normal', next_board
 
@@ -392,17 +394,17 @@ class Board:
         for x in range(self.width):
             for y in range(self.height):
                 if self.is_player_at((x, y)):
-                    raw_value = ord(self.board[(x, y)].value) - ord(Field.PLAYER_ONE.value)
+                    raw_value = ord(self[(x, y)].value) - ord(Field.PLAYER_ONE.value)
                     raw_value = (raw_value + 1) % self.n_players
-                    self.board[(x, y)] = Field(chr(raw_value + ord(Field.PLAYER_ONE.value)))
+                    self[(x, y)] = Field(chr(raw_value + ord(Field.PLAYER_ONE.value)))
 
     def swap_stones(self, first, second):
         for x in range(self.width):
             for y in range(self.height):
-                if self.board[(x, y)] == first:
-                    self.board[(x, y)] = second
-                elif self.board[(x, y)] == second:
-                    self.board[(x, y)] = first
+                if self[(x, y)] == first:
+                    self[(x, y)] = second
+                elif self[(x, y)] == second:
+                    self[(x, y)] = first
 
     def execute_bomb_at(self, old_board, pos):
         self._execute_bomb_at_recursive(old_board, pos, self.s_bombs)
@@ -411,16 +413,16 @@ class Board:
         # Stop at walls an if the strength runs out
         if strength < 0:
             return
-        if old_board[pos] == Field.HOLE or not old_board[pos]:
+        if pos not in old_board or old_board[pos] == Field.HOLE or not old_board[pos]:
             return
 
-        self.board[pos] = Field.HOLE
+        self[pos] = Field.HOLE
         for dir in Direction:
             new_pos, _ = self._next_pos(pos, dir)
             self._execute_bomb_at_recursive(old_board, new_pos, strength - 1)
 
     def _is_walkable(self, pos, player):
-        return (self.is_player_at(pos) or self.board[pos] == Field.EXPANSION) and self.board[pos] != player
+        return (self.is_player_at(pos) or self[pos] == Field.EXPANSION) and self[pos] != player
 
     def _next_pos(self, pos, dir):
         if (pos, dir) in self.transitions:
@@ -445,14 +447,14 @@ class Board:
             return (x - 1, y - 1), dir
 
     def is_player_at(self, pos):
-        return pos in self.board and self.board[pos] in PLAYERS
+        return pos in self and self[pos] in PLAYERS
 
     def count(self, fields):
         """Count the number of individual fields on the board. Counts only the values given in fields."""
         result = {field: 0 for field in fields}
         for x in range(0, self.width):
             for y in range(0, self.height):
-                tmp = self.board[(x, y)]
+                tmp = self[(x, y)]
                 if tmp in fields:
                     result[tmp] = result[tmp] + 1
 
@@ -481,15 +483,45 @@ class Board:
         for y in range(self.height):
             line_items = []
             for x in range(self.width):
-                line_items.append(self.board[(x, y)].value)
+                line_items.append(self[(x, y)].value)
             str_list.append(" ".join(line_items))
 
         return '\n'.join(str_list)
 
-    def __getitem__(self, arg):
-        if arg in self.board:
-            return self.board[arg]
-        return None
+    def __getitem__(self, key):
+        """Allows simple access to the fields of the board.
+
+        Converts the internal int8 representation to the Field enums.
+        This allows to work with the board at a high level, without knowing any implementation details."""
+        x, y = key
+        if x < 0 or x >= self.width:
+            raise KeyError('x not in board bounds!')
+        if y < 0 or y >= self.height:
+            raise KeyError('y not in board bounds!')
+
+        return Field.from_int8(self._board[y][x])
+
+    def __setitem__(self, key, value):
+        """Allows simple set operations on the board.
+
+        Converts the Field enums to the internal int8 representation.
+        This allows to work with the board at a high level, without knowing any implementation details."""
+        x, y = key
+        if x < 0 or x >= self.width:
+            raise KeyError('x not in board bounds!')
+        if y < 0 or y >= self.height:
+            raise KeyError('y not in board bounds!')
+
+        self._board[y][x] = value.to_int8()
+
+    def __contains__(self, key):
+        x, y = key
+        if x < 0 or x >= self.width:
+            return False
+        if y < 0 or y >= self.height:
+            return False
+
+        return True
 
 
 class Field(Enum):
@@ -511,12 +543,44 @@ class Field(Enum):
 
     HOLE = '-'
 
-    def to_int(self):
-        return ord(self.value) - ord(Field.PLAYER_ONE.value) + 1
+    # Transformations used for the internal np.array representation.
+    # This makes transformations (rotate/mirror) and conversion to NN input way easier and faster.
+    def to_int8(self):
+        if self == Field.INVERSION:
+            return 9
+        if self == Field.CHOICE:
+            return 10
+        if self == Field.EXPANSION:
+            return 11
+        if self == Field.BONUS:
+            return 12
+        if self == Field.HOLE:
+            return 13
 
+        return ord(self.value) - ord(Field.EMPTY.value)
+
+    @staticmethod
+    def from_int8(int8):
+        if int8 == 9:
+            return Field('i')
+        if int8 == 10:
+            return Field('c')
+        if int8 == 11:
+            return Field('x')
+        if int8 == 12:
+            return Field('b')
+        if int8 == 13:
+            return Field('-')
+
+        return Field(chr(int8 + ord(Field.EMPTY.value)))
+
+    # Transformations useful when rotating the board
     def rotate_by(self, amount, n_players):
-        new_player_number = ((self.to_int() - 1 + amount) % n_players) + 1
+        new_player_number = ((self.to_player_int() - 1 + amount) % n_players) + 1
         return Field.int_to_player(new_player_number)
+
+    def to_player_int(self):
+        return ord(self.value) - ord(Field.PLAYER_ONE.value) + 1
 
     @staticmethod
     def int_to_player(number):

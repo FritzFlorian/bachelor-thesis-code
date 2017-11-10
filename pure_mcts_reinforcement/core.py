@@ -43,7 +43,7 @@ class Evaluation:
         if current_active_player == Field.PLAYER_ONE:
             return
 
-        rotation_amount = self.game_state.board.n_players - current_active_player.to_int() + 1
+        rotation_amount = self.game_state.board.n_players - current_active_player.to_player_int() + 1
 
         self._rotate_players(rotation_amount)
 
@@ -55,7 +55,7 @@ class Evaluation:
         if current_active_player == self.active_player:
             return
 
-        rotation_amount = self.active_player.to_int() - 1
+        rotation_amount = self.active_player.to_player_int() - 1
         self._rotate_players(rotation_amount)
 
     def _rotate_players(self, rotation_amount):
