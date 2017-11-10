@@ -3,6 +3,11 @@ import tensorflow as tf
 import numpy as np
 import random
 from reversi.game_core import Field, Board, GameState
+import multiprocessing
+import concurrent.futures
+import os
+import time
+import copy
 
 BOARD_HEIGHT = 8
 BOARD_WIDTH = 8
@@ -14,37 +19,95 @@ FLOAT = tf.float32
 
 L2_LOSS_WEIGHT = 1.0
 
+# Number of games played to gather training data per epoch (per NN configuration)
+GAMES_PER_EPOCH = 40
+SIMULATIONS_PER_GAME_TURN = 15
+
+TRAINING_BATCHES_PER_EPOCH = 500
+BATCH_SIZE = 32
+
+N_EPOCHS = 10
+
+CHECKPOINT_FOLDER = './checkpoints'
+DATA_FOLDER = './data'
+
+N_EVALUATION_GAMES = 30
+NEEDED_AVG_SCORE = 0.51
+
 
 def main():
     with open('simple_8_by_8.map') as file:
         board = Board(file.read())
     initial_game_state = GameState(board)
 
-    neural_network = SimpleNeuralNetwork()
-    with tf.Graph().as_default():
-        neural_network.construct_network()
-        with tf.Session() as sess:
-            neural_network.init_network()
-            neural_network.save_weights(sess, './weights.ckpt')
+    best_model_dir = os.path.join(CHECKPOINT_FOLDER, 'current')
+    best_model_file = os.path.join(best_model_dir, 'checkpoint.ckpt')
 
-    nn_executor = core.NeuralNetworkExecutor(SimpleNeuralNetwork(), './weights.ckpt')
-    nn_executor.start()
-    training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), './weights.ckpt', 'data')
-    training_executor.start()
+    # Make sure we got a point to start training
+    if not os.path.exists(best_model_dir):
+        create_directory(best_model_dir)
+        neural_network = SimpleNeuralNetwork()
+        with tf.Graph().as_default():
+            neural_network.construct_network()
+            with tf.Session() as sess:
+                neural_network.init_network()
+                neural_network.save_weights(sess, best_model_file)
 
-    for i in range(5):
-        print('Start Run {}'.format(i))
-        selfplay_executor = core.SelfplayExecutor(initial_game_state, nn_executor, 100)
-        evaluations = selfplay_executor.run()
-        print(evaluations)
-        print(evaluations[0].probabilities[(Field.PLAYER_ONE, (4, 2), None)])
-        training_executor.add_examples(evaluations)
+    run_dir = 'run_{}'.format(round(time.time() / 1000))
+    for epoch in range(N_EPOCHS):
+        current_data_dir = os.path.join(DATA_FOLDER, run_dir, 'epoch-{0:05d}'.format(epoch))
+        current_ckpt_dir = os.path.join(CHECKPOINT_FOLDER, run_dir, 'ckpt-{0:05d}'.format(epoch))
+        current_ckpt_file = os.path.join(current_ckpt_dir, 'checkpoint.ckpt')
+        create_directory(current_ckpt_dir)
 
-    for j in range(250):
-        print('Start Training {}'.format(j))
-        training_executor.run_training_batch(32)
+        nn_executor = core.NeuralNetworkExecutor(SimpleNeuralNetwork(), best_model_file, batch_size=4)
+        nn_executor.start()
 
-    training_executor.save('./weights.ckpt')
+        training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
+        training_executor.start()
+
+        # Play games to get data.
+        # Run the games in parallel to fully utilize the processor.
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            futures = []
+            for _ in range(GAMES_PER_EPOCH):
+                game_state = copy.deepcopy(initial_game_state)
+                selfplay_executor = core.SelfplayExecutor(game_state, nn_executor, SIMULATIONS_PER_GAME_TURN)
+                future = executor.submit(selfplay_executor.run)
+                futures.append(future)
+
+            for future in concurrent.futures.as_completed(futures):
+                evaluations = future.result()
+                print('Add {} evaluations to training data.'.format(len(evaluations)))
+                training_executor.add_examples(evaluations)
+
+        # Train a new neural network
+        for batch in range(TRAINING_BATCHES_PER_EPOCH):
+            print('Run Training Batch {}'.format(batch))
+            training_executor.run_training_batch(BATCH_SIZE)
+        training_executor.save(current_ckpt_file)
+
+        # See if we choose the new one as best network
+        new_nn_executor = core.NeuralNetworkExecutor(SimpleNeuralNetwork(), current_ckpt_file)
+        evaluator = core.ModelEvaluator(nn_executor, new_nn_executor, ['./simple_8_by_8.map'])
+
+        scores = evaluator.run(N_EVALUATION_GAMES, SIMULATIONS_PER_GAME_TURN)
+        print('Scores: {} vs. {}'.format(scores[0], scores[1])) 
+
+        new_avg_score = scores[1] / N_EVALUATION_GAMES
+        if new_avg_score >= NEEDED_AVG_SCORE:
+            print('Using new model, as its average score is {} >= {}'.format(new_avg_score, NEEDED_AVG_SCORE))
+            training_executor.save(best_model_file)
+
+        training_executor.stop()
+        new_nn_executor.stop()
+        nn_executor.stop()
+
+
+def create_directory(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
 
 class SimpleNeuralNetwork(core.NeuralNetwork):
@@ -151,22 +214,12 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
     def init_network(self):
         self.init.run()
 
-    def execute_batch(self, sess, game_states):
-        evaluations = [core.Evaluation(game_state) for game_state in game_states]
-
-        for evaluation in evaluations:
-            evaluation.convert_to_normal()
-            if random.choice([True, False]):
-                evaluation.mirror_vertical()
-                evaluation.mirrored = True
-            else:
-                evaluation.mirrored = False
-
+    def execute_batch(self, sess, evaluations):
         inputs = [SimpleNeuralNetwork._game_board_to_input(evaluation.game_state.board) for evaluation in evaluations]
         outputs = sess.run([self.out_prob, self.out_value], feed_dict={self.raw_x: inputs})
 
         for i in range(len(evaluations)):
-            game_state = game_states[i]
+            game_state = evaluations[i].game_state
             height = game_state.board.height
             width = game_state.board.width
 
@@ -176,11 +229,6 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
                     evaluations[i].probabilities[(player, (x, y), None)] = outputs[0][i][y * width + x]
             evaluations[i].expected_result[Field.PLAYER_ONE] = outputs[1][i][0]
             evaluations[i].expected_result[Field.PLAYER_TWO] = 1.0 - outputs[1][i][0]
-
-        for evaluation in evaluations:
-            if evaluation.mirrored:
-                evaluation.mirror_vertical()
-            evaluation.convert_from_normal()
 
         return evaluations
 
