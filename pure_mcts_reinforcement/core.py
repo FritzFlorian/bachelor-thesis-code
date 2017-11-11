@@ -1,4 +1,6 @@
 from reversi.game_core import GameState, Field, Board
+import reversi.network_core as network
+import reversi.tournament as tournament
 import copy
 import math
 import numpy as np
@@ -622,7 +624,86 @@ class ModelEvaluator:
 
 class AITrivialEvaluator:
     """Compares a neural network to ai trivial by playing out a small tournament."""
-    # TODO: Pass neural networks and maps to be played
+    def __init__(self, nn_executor, map_paths):
+        self.nn_executor = nn_executor
+        self.map_paths = map_paths
 
-    def run(self, n_games):
-        raise NotImplementedError("Play a tournament with #n_games. Return the win-rate of the network.")
+    def run(self, n_games, time):
+        total_scores = [0, 0]
+
+        for i in range(n_games):
+            map_path = np.random.choice(self.map_paths)
+            scores = self._play_game(map_path, time)
+
+            # TODO: Make universal for more then two players
+            for j in range(2):
+                total_scores[j] = total_scores[j] + scores[j]
+
+        return total_scores
+
+    def _play_game(self, map_path, turn_time):
+        with open(map_path, 'r') as file:
+            board = Board(file.read())
+        current_game_state = GameState(board)
+
+        # TODO: Make universal for more then two players
+        tmp = [Field.PLAYER_ONE, Field.PLAYER_TWO]
+        np.random.shuffle(tmp)
+
+        player_mapping = {tmp[0]: 0, tmp[1]: 1}
+
+        print('Start Game Server')
+        server = network.BasicServer(board, 2020)
+        server.start()
+        tournament.TrivialAIClient('./ai_trivial').start('localhost', 2020)
+        group = server.accept_client()
+        server.set_player_for_group(group, tmp[1])
+
+        while True:
+            print('Run Game Step')
+            current_player = current_game_state.calculate_next_player()
+            if not current_player:
+                break
+
+            selected_move = None
+            # Find the correct nn to execute this move
+            if player_mapping[current_player] == 0:
+                end_time = time.clock() + turn_time
+
+                mcts_executor = MCTSExecutor(current_game_state, self.nn_executor)
+
+                while time.clock() < end_time:
+                    mcts_executor.run(1)
+
+                # Find the best move
+                best_probability = -1.0
+                for move, probability in mcts_executor.move_probabilities(1).items():
+                    if probability > best_probability:
+                        best_probability = probability
+                        selected_move = move
+            else:
+                server.send_player_message(current_player, network.MoveRequestMessage(round(turn_time * 1000), 0))
+                move_response = server.read_player_message(current_player, network.MoveResponseMessage)
+                selected_move = (current_player, move_response.pos, move_response.choice)
+
+            # Execute the move
+            player, pos, choice = selected_move
+            current_game_state = current_game_state.execute_move(player, pos, choice)
+            server.broadcast_message(network.MoveNotificationMessage(pos, choice, player))
+
+        # return the scores
+        server.broadcast_message(network.EndPhaseOneMessage())
+        server.broadcast_message(network.EndPhaseTwoMessage())
+        server.stop()
+        scores = current_game_state.calculate_scores()
+
+        # TODO: Make universal for more then two players
+        result = [0, 0]
+        result[player_mapping[Field.PLAYER_ONE]] = scores[Field.PLAYER_ONE]
+        result[player_mapping[Field.PLAYER_TWO]] = scores[Field.PLAYER_TWO]
+
+        print("Counts: {} vs. {}".format(current_game_state.board.count([Field.PLAYER_ONE]),
+                                         current_game_state.board.count([Field.PLAYER_TWO])))
+        print("Result: {} vs. {}".format(result[0], result[1]))
+
+        return result

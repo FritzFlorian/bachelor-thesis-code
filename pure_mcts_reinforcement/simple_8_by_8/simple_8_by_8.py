@@ -93,7 +93,7 @@ def main():
         evaluator = core.ModelEvaluator(nn_executor, new_nn_executor, ['./simple_8_by_8.map'])
 
         scores = evaluator.run(N_EVALUATION_GAMES, SIMULATIONS_PER_GAME_TURN)
-        print('Scores: {} vs. {}'.format(scores[0], scores[1])) 
+        print('Scores: {} vs. {}'.format(scores[0], scores[1]))
 
         new_avg_score = scores[1] / N_EVALUATION_GAMES
         if new_avg_score >= NEEDED_AVG_SCORE:
