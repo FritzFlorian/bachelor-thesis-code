@@ -1,13 +1,13 @@
 import pure_mcts_reinforcement.core as core
 import tensorflow as tf
 import numpy as np
-import random
 from reversi.game_core import Field, Board, GameState
 import multiprocessing
 import concurrent.futures
 import os
 import time
 import copy
+import pickle
 
 BOARD_HEIGHT = 8
 BOARD_WIDTH = 8
@@ -20,10 +20,10 @@ FLOAT = tf.float32
 L2_LOSS_WEIGHT = 1.0
 
 # Number of games played to gather training data per epoch (per NN configuration)
-GAMES_PER_EPOCH = 40
-SIMULATIONS_PER_GAME_TURN = 15
+GAMES_PER_EPOCH = 5
+SIMULATIONS_PER_GAME_TURN = 5
 
-TRAINING_BATCHES_PER_EPOCH = 500
+TRAINING_BATCHES_PER_EPOCH = 100
 BATCH_SIZE = 32
 
 N_EPOCHS = 10
@@ -31,11 +31,14 @@ N_EPOCHS = 10
 CHECKPOINT_FOLDER = './checkpoints'
 DATA_FOLDER = './data'
 
-N_EVALUATION_GAMES = 30
+N_EVALUATION_GAMES = 5
 NEEDED_AVG_SCORE = 0.51
 
 
 def main():
+    # FIXME: Tensorflow issue when using multiprocesning
+    multiprocessing.set_start_method('spawn', True)
+
     with open('simple_8_by_8.map') as file:
         board = Board(file.read())
     initial_game_state = GameState(board)
@@ -53,44 +56,61 @@ def main():
                 neural_network.init_network()
                 neural_network.save_weights(sess, best_model_file)
 
-    run_dir = 'run_{}'.format(round(time.time() / 1000))
+    run_dir = 'run_{}'.format(round(time.time() * 1000))
     for epoch in range(N_EPOCHS):
         current_data_dir = os.path.join(DATA_FOLDER, run_dir, 'epoch-{0:05d}'.format(epoch))
         current_ckpt_dir = os.path.join(CHECKPOINT_FOLDER, run_dir, 'ckpt-{0:05d}'.format(epoch))
         current_ckpt_file = os.path.join(current_ckpt_dir, 'checkpoint.ckpt')
         create_directory(current_ckpt_dir)
 
-        nn_executor = core.NeuralNetworkExecutor(SimpleNeuralNetwork(), best_model_file, batch_size=4)
-        nn_executor.start()
+        nn_executor_server = \
+            core.NeuralNetworkExecutorServer(SimpleNeuralNetwork(), best_model_file, batch_size=4, port=6001)
+        nn_executor_server.start()
 
         training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
         training_executor.start()
 
         # Play games to get data.
         # Run the games in parallel to fully utilize the processor.
+        print("Start selfplay for epoch {}...".format(epoch))
+        selfplay_pool = multiprocessing.Pool(processes=8)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            futures = []
-            for _ in range(GAMES_PER_EPOCH):
-                game_state = copy.deepcopy(initial_game_state)
-                selfplay_executor = core.SelfplayExecutor(game_state, nn_executor, SIMULATIONS_PER_GAME_TURN)
-                future = executor.submit(selfplay_executor.run)
-                futures.append(future)
+        def game_finished(evaluations):
+            print('Add {} evaluations to training data.'.format(len(evaluations)))
+            training_executor.add_examples(evaluations)
 
-            for future in concurrent.futures.as_completed(futures):
-                evaluations = future.result()
-                print('Add {} evaluations to training data.'.format(len(evaluations)))
-                training_executor.add_examples(evaluations)
+        for _ in range(GAMES_PER_EPOCH):
+            nn_executor_client = core.NeuralNetworkExecutorClient('tcp://localhost:6001')
+            selfplay_pool.apply_async(play_game, (initial_game_state, nn_executor_client, SIMULATIONS_PER_GAME_TURN),
+                                      callback=game_finished)
+
+        selfplay_pool.close()
+        selfplay_pool.join()
+        nn_executor_server.stop()
+
 
         # Train a new neural network
+        print("Start training for epoch {}...".format(epoch))
         for batch in range(TRAINING_BATCHES_PER_EPOCH):
-            print('Run Training Batch {}'.format(batch))
             training_executor.run_training_batch(BATCH_SIZE)
+            if batch % 10 == 0:
+                print('{} batches executed.'.format(batch))
         training_executor.save(current_ckpt_file)
 
+
         # See if we choose the new one as best network
-        new_nn_executor = core.NeuralNetworkExecutor(SimpleNeuralNetwork(), current_ckpt_file)
-        evaluator = core.ModelEvaluator(nn_executor, new_nn_executor, ['./simple_8_by_8.map'])
+        print("Start Evaluation versus last epoch...")
+        nn_executor_server = core.NeuralNetworkExecutorServer(SimpleNeuralNetwork(), best_model_file, port=6002)
+        nn_executor_server.start()
+
+        new_nn_executor_server = core.NeuralNetworkExecutorServer(SimpleNeuralNetwork(), current_ckpt_file, port=6003)
+        new_nn_executor_server.start()
+
+        nn_executor_client = core.NeuralNetworkExecutorClient('tcp://localhost:6002')
+        nn_executor_client.start()
+        new_nn_executor_client = core.NeuralNetworkExecutorClient('tcp://localhost:6003')
+        new_nn_executor_client.start()
+        evaluator = core.ModelEvaluator(nn_executor_client, new_nn_executor_client, ['./simple_8_by_8.map'])
 
         scores = evaluator.run(N_EVALUATION_GAMES, SIMULATIONS_PER_GAME_TURN)
         print('Scores: {} vs. {}'.format(scores[0], scores[1]))
@@ -100,9 +120,19 @@ def main():
             print('Using new model, as its average score is {} >= {}'.format(new_avg_score, NEEDED_AVG_SCORE))
             training_executor.save(best_model_file)
 
+        nn_executor_client.stop()
+        new_nn_executor_client.stop()
         training_executor.stop()
-        new_nn_executor.stop()
-        nn_executor.stop()
+        new_nn_executor_server.stop()
+        nn_executor_server.stop()
+
+
+def play_game(game_state, nn_executor, n_simulations):
+    nn_executor.start()
+    selfplay_executor = core.SelfplayExecutor(game_state, nn_executor, n_simulations)
+    result = selfplay_executor.run()
+    nn_executor.stop()
+    return result
 
 
 def create_directory(directory):
