@@ -1,13 +1,12 @@
 import pure_mcts_reinforcement.core as core
+import pure_mcts_reinforcement.distribution as distribution
 import tensorflow as tf
 import numpy as np
 from reversi.game_core import Field, Board, GameState
 import multiprocessing
-import concurrent.futures
 import os
 import time
-import copy
-import pickle
+
 
 BOARD_HEIGHT = 8
 BOARD_WIDTH = 8
@@ -63,31 +62,18 @@ def main():
         current_ckpt_file = os.path.join(current_ckpt_dir, 'checkpoint.ckpt')
         create_directory(current_ckpt_dir)
 
-        nn_executor_server = \
-            core.NeuralNetworkExecutorServer(SimpleNeuralNetwork(), best_model_file, batch_size=4, port=6001)
-        nn_executor_server.start()
-
         training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
         training_executor.start()
-
-        # Play games to get data.
-        # Run the games in parallel to fully utilize the processor.
-        print("Start selfplay for epoch {}...".format(epoch))
-        selfplay_pool = multiprocessing.Pool(processes=8)
-
         def game_finished(evaluations):
             print('Add {} evaluations to training data.'.format(len(evaluations)))
             training_executor.add_examples(evaluations)
 
-        for _ in range(GAMES_PER_EPOCH):
-            nn_executor_client = core.NeuralNetworkExecutorClient('tcp://localhost:6001')
-            selfplay_pool.apply_async(play_game, (initial_game_state, nn_executor_client, SIMULATIONS_PER_GAME_TURN),
-                                      callback=game_finished)
-
-        selfplay_pool.close()
-        selfplay_pool.join()
-        nn_executor_server.stop()
-
+        # Run selfplay to get training data
+        print("Start selfplay for epoch {}...".format(epoch))
+        parallel_selfplay = distribution.ParallelSelfplayPool(initial_game_state, SimpleNeuralNetwork(),
+                                                              best_model_file, GAMES_PER_EPOCH, game_finished,
+                                                              simulations_per_turn=SIMULATIONS_PER_GAME_TURN)
+        parallel_selfplay.run()
 
         # Train a new neural network
         print("Start training for epoch {}...".format(epoch))
@@ -125,14 +111,6 @@ def main():
         training_executor.stop()
         new_nn_executor_server.stop()
         nn_executor_server.stop()
-
-
-def play_game(game_state, nn_executor, n_simulations):
-    nn_executor.start()
-    selfplay_executor = core.SelfplayExecutor(game_state, nn_executor, n_simulations)
-    result = selfplay_executor.run()
-    nn_executor.stop()
-    return result
 
 
 def create_directory(directory):
