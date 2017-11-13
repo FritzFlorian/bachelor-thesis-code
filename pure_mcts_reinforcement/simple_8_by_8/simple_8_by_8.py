@@ -86,31 +86,20 @@ def main():
 
         # See if we choose the new one as best network
         print("Start Evaluation versus last epoch...")
-        nn_executor_server = core.NeuralNetworkExecutorServer(SimpleNeuralNetwork(), best_model_file, port=6002)
-        nn_executor_server.start()
+        parallel_evaluation = \
+            distribution.ParallelSelfplayEvaluationPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
+                                                        SimpleNeuralNetwork(), best_model_file, current_ckpt_file,
+                                                        N_EVALUATION_GAMES,
+                                                        simulations_per_turn=SIMULATIONS_PER_GAME_TURN)
 
-        new_nn_executor_server = core.NeuralNetworkExecutorServer(SimpleNeuralNetwork(), current_ckpt_file, port=6003)
-        new_nn_executor_server.start()
+        scores = parallel_evaluation.run()
+        print('Scores: Old {} vs. New {}'.format(scores[0], scores[1]))
 
-        nn_executor_client = core.NeuralNetworkExecutorClient('tcp://localhost:6002')
-        nn_executor_client.start()
-        new_nn_executor_client = core.NeuralNetworkExecutorClient('tcp://localhost:6003')
-        new_nn_executor_client.start()
-        evaluator = core.ModelEvaluator(nn_executor_client, new_nn_executor_client, ['./simple_8_by_8.map'])
-
-        scores = evaluator.run(N_EVALUATION_GAMES, SIMULATIONS_PER_GAME_TURN)
-        print('Scores: {} vs. {}'.format(scores[0], scores[1]))
-
-        new_avg_score = scores[1] / N_EVALUATION_GAMES
-        if new_avg_score >= NEEDED_AVG_SCORE:
-            print('Using new model, as its average score is {} >= {}'.format(new_avg_score, NEEDED_AVG_SCORE))
+        if scores[1] >= NEEDED_AVG_SCORE:
+            print('Using new model, as its average score is {} >= {}'.format(scores[1], NEEDED_AVG_SCORE))
             training_executor.save(best_model_file)
 
-        nn_executor_client.stop()
-        new_nn_executor_client.stop()
         training_executor.stop()
-        new_nn_executor_server.stop()
-        nn_executor_server.stop()
 
 
 def create_directory(directory):
