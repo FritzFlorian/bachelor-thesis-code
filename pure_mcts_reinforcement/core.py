@@ -702,16 +702,22 @@ class AITrivialEvaluator:
 
     def run(self, n_games, time):
         total_scores = [0, 0]
+        total_stones = [0, 0]
 
         for i in range(n_games):
             map_path = np.random.choice(self.map_paths)
-            scores = self._play_game(map_path, time)
+            try:
+                scores, stones = self._play_game(map_path, time)
 
-            # TODO: Make universal for more then two players
-            for j in range(2):
-                total_scores[j] = total_scores[j] + scores[j]
+                # TODO: Make universal for more then two players
+                for j in range(2):
+                    total_scores[j] = total_scores[j] + scores[j]
+                    total_stones[j] = total_stones[j] + stones[j]
+            except IOError:
+                # TODO: Handle Ports Properly
+                print('Port Conflict...')
 
-        return total_scores
+        return total_scores, total_stones
 
     def _play_game(self, map_path, turn_time):
         with open(map_path, 'r') as file:
@@ -724,15 +730,15 @@ class AITrivialEvaluator:
 
         player_mapping = {tmp[0]: 0, tmp[1]: 1}
 
-        print('Start Game Server')
-        server = network.BasicServer(board, 2020)
+        # TODO: Handle Ports Properly
+        port = random.randint(2000, 4000)
+        server = network.BasicServer(board, port)
         server.start()
-        tournament.TrivialAIClient('./ai_trivial').start('localhost', 2020)
+        tournament.TrivialAIClient('./ai_trivial').start('localhost', port)
         group = server.accept_client()
         server.set_player_for_group(group, tmp[1])
 
         while True:
-            print('Run Game Step')
             current_player = current_game_state.calculate_next_player()
             if not current_player:
                 break
@@ -774,8 +780,8 @@ class AITrivialEvaluator:
         result[player_mapping[Field.PLAYER_ONE]] = scores[Field.PLAYER_ONE]
         result[player_mapping[Field.PLAYER_TWO]] = scores[Field.PLAYER_TWO]
 
-        print("Counts: {} vs. {}".format(current_game_state.board.count([Field.PLAYER_ONE]),
-                                         current_game_state.board.count([Field.PLAYER_TWO])))
-        print("Result: {} vs. {}".format(result[0], result[1]))
+        stones = [0, 0]
+        stones[player_mapping[Field.PLAYER_ONE]] = current_game_state.board.count({Field.PLAYER_ONE})[Field.PLAYER_ONE]
+        stones[player_mapping[Field.PLAYER_TWO]] = current_game_state.board.count({Field.PLAYER_TWO})[Field.PLAYER_TWO]
 
-        return result
+        return result, stones

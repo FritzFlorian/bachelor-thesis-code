@@ -19,10 +19,10 @@ FLOAT = tf.float32
 L2_LOSS_WEIGHT = 1.0
 
 # Number of games played to gather training data per epoch (per NN configuration)
-GAMES_PER_EPOCH = 5
-SIMULATIONS_PER_GAME_TURN = 5
+GAMES_PER_EPOCH = 80
+SIMULATIONS_PER_GAME_TURN = 100
 
-TRAINING_BATCHES_PER_EPOCH = 100
+TRAINING_BATCHES_PER_EPOCH = 10_000
 BATCH_SIZE = 32
 
 N_EPOCHS = 10
@@ -30,8 +30,10 @@ N_EPOCHS = 10
 CHECKPOINT_FOLDER = './checkpoints'
 DATA_FOLDER = './data'
 
-N_EVALUATION_GAMES = 5
-NEEDED_AVG_SCORE = 0.51
+N_EVALUATION_GAMES = 40
+NEEDED_AVG_SCORE = 0.55
+
+N_AI_EVALUATION_GAMES = 24
 
 
 def main():
@@ -56,11 +58,25 @@ def main():
                 neural_network.save_weights(sess, best_model_file)
 
     run_dir = 'run_{}'.format(round(time.time() * 1000))
+    create_directory(os.path.join(CHECKPOINT_FOLDER, run_dir))
+    stats_file = os.path.join(CHECKPOINT_FOLDER, run_dir, 'stats.csv')
+    with open(stats_file, 'w') as file:
+        file.write('epoch,nn_score,ai_score,nn_stones,ai_stones')
+
     for epoch in range(N_EPOCHS):
         current_data_dir = os.path.join(DATA_FOLDER, run_dir, 'epoch-{0:05d}'.format(epoch))
         current_ckpt_dir = os.path.join(CHECKPOINT_FOLDER, run_dir, 'ckpt-{0:05d}'.format(epoch))
         current_ckpt_file = os.path.join(current_ckpt_dir, 'checkpoint.ckpt')
         create_directory(current_ckpt_dir)
+
+        # Evaluate vs. ai trivial
+        parallel_tournament = distribution.ParallelAITrivialPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
+                                                                 best_model_file, N_EVALUATION_GAMES, 1.0)
+        scores, stones = parallel_tournament.run()
+        print('Tournament Scores: AI {} vs. NN {}'.format(scores[1], scores[0]))
+        print('Tournament Stones: AI {} vs. NN {}'.format(stones[1], stones[0]))
+        with open(stats_file, 'a') as file:
+            file.write('{},{},{},{},{}'.format(epoch, scores[0], scores[1], stones[0], stones[1]))
 
         training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
         training_executor.start()
@@ -79,7 +95,7 @@ def main():
         print("Start training for epoch {}...".format(epoch))
         for batch in range(TRAINING_BATCHES_PER_EPOCH):
             training_executor.run_training_batch(BATCH_SIZE)
-            if batch % 10 == 0:
+            if batch % 100 == 0:
                 print('{} batches executed.'.format(batch))
         training_executor.save(current_ckpt_file)
 

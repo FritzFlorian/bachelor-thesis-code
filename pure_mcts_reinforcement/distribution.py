@@ -101,3 +101,54 @@ class ParallelSelfplayEvaluationPool:
         nn_client_two.stop()
 
         return result
+
+
+class ParallelAITrivialPool:
+    """Parallel execution of tournament games against ai trivial using multiple processes on this host machine."""
+
+    def __init__(self, maps, neural_network, model_file, n_games, time, batch_size=4,
+                 pool_size=multiprocessing.cpu_count(), port=60012):
+        self.maps = maps
+        self.n_games = n_games
+        self.time = time
+        self.pool_size = pool_size
+        self.port = port
+
+        self.nn_server = core.NeuralNetworkExecutorServer(neural_network, model_file, batch_size=batch_size, port=port)
+
+    def run(self):
+        self.nn_server.start()
+
+        selfplay_pool = multiprocessing.Pool(processes=self.pool_size)
+        games_per_tournament = round(self.n_games / self.pool_size) + 1
+
+        parameters = []
+        for _ in range(self.pool_size):
+            nn_client = core.NeuralNetworkExecutorClient('tcp://localhost:{}'.format(self.port))
+            parameters.append((self.maps, games_per_tournament, self.time, nn_client))
+
+        results = selfplay_pool.map(ParallelAITrivialPool.play_tournament, parameters)
+        selfplay_pool.close()
+        selfplay_pool.join()
+
+        scores_sum = [0, 0]
+        stones_sum = [0, 0]
+        for result in results:
+            for i in range(2):
+                scores_sum[i] = scores_sum[i] + result[0][i]
+                stones_sum[i] = stones_sum[i] + result[1][i]
+
+        self.nn_server.stop()
+
+        return scores_sum, stones_sum
+
+    @staticmethod
+    def play_tournament(args):
+        maps, n_games, time, nn_client = args
+
+        nn_client.start()
+        tournament = core.AITrivialEvaluator(nn_client, maps)
+        result = tournament.run(n_games, time)
+        nn_client.stop()
+
+        return result
