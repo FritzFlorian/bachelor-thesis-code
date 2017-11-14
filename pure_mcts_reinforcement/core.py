@@ -178,7 +178,7 @@ class Evaluation:
         height = self.game_state.board.height
         width = self.game_state.board.width
 
-        old_board = copy.copy(self.game_state.board)
+        old_board = copy.deepcopy(self.game_state.board)
         for y in range(height):
             for x in range(width):
                 old_x = width - x - 1
@@ -194,14 +194,14 @@ class Evaluation:
             new_y = height - y - 1
             self.probabilities[(player, (new_x, new_y), choice)] = probability
 
-    def _rotate_by_90(self):
+    def _rotate_by_270(self):
         height = self.game_state.board.height
         width = self.game_state.board.width
 
         # Currently only supported for quadratic boards
         assert(height == width)
 
-        old_board = copy.copy(self.game_state.board)
+        old_board = copy.deepcopy(self.game_state.board)
         for y in range(height):
             for x in range(width):
                 new_x = height - y - 1
@@ -217,14 +217,14 @@ class Evaluation:
             new_y = height - x - 1
             self.probabilities[(player, (new_x, new_y), choice)] = probability
 
-    def _rotate_by_270(self):
+    def _rotate_by_90(self):
         height = self.game_state.board.height
         width = self.game_state.board.width
 
         # Currently only supported for quadratic boards
         assert(height == width)
 
-        old_board = copy.copy(self.game_state.board)
+        old_board = copy.deepcopy(self.game_state.board)
         for y in range(height):
             for x in range(width):
                 new_x = y
