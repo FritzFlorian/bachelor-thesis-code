@@ -75,8 +75,7 @@ def main():
         def game_finished(evaluations):
             for evaluation in evaluations:
                 # Try to prevent overfitting a little
-                if random.choice([True, False]):
-                    evaluation.mirror_vertical()
+                evaluation.apply_transformation(random.randint(0, 6))
             print('Add {} evaluations to training data.'.format(len(evaluations)))
             training_executor.add_examples(evaluations)
 

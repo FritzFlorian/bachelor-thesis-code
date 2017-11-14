@@ -22,7 +22,10 @@ class Evaluation:
     The evaluation consists of move probabilities and the expected result of the game state.
 
     Can be transformed to normal form and back.
-    In normal form the currently active player is player one (this should make it easier for the nn)."""
+    In normal form the currently active player is player one (this should make it easier for the nn).
+
+    Can be transformed according to dihedral groups.
+    NOTE: These transformations currently only work with quadratic fields!"""
     def __init__(self, game_state: GameState):
         self.game_state = game_state
 
@@ -37,6 +40,10 @@ class Evaluation:
 
         # Keep it to be able to transform to/from normal form
         self.active_player = game_state.calculate_next_player()
+
+        # Keep the applied transformations (rotation, mirroring) to be able to undo them.
+        # TODO: write about dihedral groups in the thesis
+        self._applied_transformations = []
 
     def convert_to_normal(self):
         """Converts the evaluation to a form where the next active player is player one."""
@@ -102,7 +109,58 @@ class Evaluation:
         for (player, pos, choice), probability in old_probabilities.items():
             self.probabilities[(player.rotate_by(rotation_amount, n_players), pos, choice)] = probability
 
-    def mirror_vertical(self):
+    def apply_transformation(self, number):
+        """Applies one dihedral group transformation given an number between 0 and 6."""
+        if number == 0:
+            # Identity
+            pass
+        elif number == 1:
+            self._execute_transformation('rot180')
+        elif number == 2:
+            self._execute_transformation('mirror')
+        elif number == 3:
+            self._execute_transformation('rot180')
+            self._execute_transformation('mirror')
+        elif number == 4:
+            self._execute_transformation('rot90')
+        elif number == 5:
+            self._execute_transformation('rot90')
+            self._execute_transformation('mirror')
+        elif number == 6:
+            self._execute_transformation('mirror')
+            self._execute_transformation('rot90')
+        else:
+            raise AttributeError('Transformation number must be between 0 and 6, was {}'.format(number))
+
+    def undo_transformations(self):
+        for transformation in self._applied_transformations:
+            self._undo_transformation(transformation)
+        self._applied_transformations = []
+
+    def _execute_transformation(self, transformation):
+        if transformation == 'rot90':
+            self._rotate_by_90()
+            self._applied_transformations.append('rot90')
+        elif transformation == 'rot180':
+            self._rotate_by_180()
+            self._applied_transformations.append('rot180')
+        elif transformation == 'mirror':
+            self._mirror_vertical()
+            self._applied_transformations.append('mirror')
+        else:
+            raise AttributeError('Transformation "{}" is not supported!'.format(transformation))
+
+    def _undo_transformation(self, transformation):
+        if transformation == 'rot90':
+            self._rotate_by_270()
+        elif transformation == 'rot180':
+            self._rotate_by_180()
+        elif transformation == 'mirror':
+            self._mirror_vertical()
+        else:
+            raise AttributeError('Transformation "{}" is not supported!'.format(transformation))
+
+    def _mirror_vertical(self):
         # No deep copy needed
         old_board = copy.copy(self.game_state.board._board)
         for i in range(self.game_state.board.height):
@@ -115,6 +173,72 @@ class Evaluation:
             x, y = pos
             new_y = self.game_state.board.height - y - 1
             self.probabilities[(player, (x, new_y), choice)] = probability
+
+    def _rotate_by_180(self):
+        height = self.game_state.board.height
+        width = self.game_state.board.width
+
+        old_board = copy.copy(self.game_state.board)
+        for y in range(height):
+            for x in range(width):
+                old_x = width - x - 1
+                old_y = height - y - 1
+                self.game_state.board[(x, y)] = old_board[(old_x, old_y)]
+
+        # Moves also need to be mirrored
+        old_probabilities = copy.deepcopy(self.probabilities)
+        self.probabilities = dict()
+        for (player, pos, choice), probability in old_probabilities.items():
+            x, y = pos
+            new_x = width - x - 1
+            new_y = height - y - 1
+            self.probabilities[(player, (new_x, new_y), choice)] = probability
+
+    def _rotate_by_90(self):
+        height = self.game_state.board.height
+        width = self.game_state.board.width
+
+        # Currently only supported for quadratic boards
+        assert(height == width)
+
+        old_board = copy.copy(self.game_state.board)
+        for y in range(height):
+            for x in range(width):
+                new_x = height - y - 1
+                new_y = x
+                self.game_state.board[(x, y)] = old_board[(new_x, new_y)]
+
+        # Moves also need to be mirrored
+        old_probabilities = copy.deepcopy(self.probabilities)
+        self.probabilities = dict()
+        for (player, pos, choice), probability in old_probabilities.items():
+            x, y = pos
+            new_x = y
+            new_y = height - x - 1
+            self.probabilities[(player, (new_x, new_y), choice)] = probability
+
+    def _rotate_by_270(self):
+        height = self.game_state.board.height
+        width = self.game_state.board.width
+
+        # Currently only supported for quadratic boards
+        assert(height == width)
+
+        old_board = copy.copy(self.game_state.board)
+        for y in range(height):
+            for x in range(width):
+                new_x = y
+                new_y = height - x - 1
+                self.game_state.board[(x, y)] = old_board[(new_x, new_y)]
+
+        # Moves also need to be mirrored
+        old_probabilities = copy.deepcopy(self.probabilities)
+        self.probabilities = dict()
+        for (player, pos, choice), probability in old_probabilities.items():
+            x, y = pos
+            new_x = height - y - 1
+            new_y = x
+            self.probabilities[(player, (new_x, new_y), choice)] = probability
 
 
 class NeuralNetwork:
@@ -265,20 +389,14 @@ class NeuralNetworkExecutorClient:
         # We will apply rotations on random instances.
         evaluation = Evaluation(copy.deepcopy(game_state))
         evaluation.convert_to_normal()
-        if random.choice([True, False]):
-            evaluation.mirror_vertical()
-            evaluation.mirrored = True
-        else:
-            evaluation.mirrored = False
+        evaluation.apply_transformation(random.randint(0, 6))
 
         # Execute it using the neural network process.
         self.socket.send_pyobj(evaluation)
         evaluation = self.socket.recv_pyobj()
 
         # Undo our random rotation on the instance.
-        if evaluation.mirrored:
-            evaluation.mirror_vertical()
-        evaluation.convert_from_normal()
+        evaluation.undo_transformations()
 
         return evaluation
 
