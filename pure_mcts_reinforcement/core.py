@@ -143,7 +143,7 @@ class NeuralNetwork:
     def load_weights(self, sess, filename):
         raise NotImplementedError("Add implementation that loads the weights of this network to a checkpoint.")
 
-    def log_loss(self, tf_file_writer, evaluations, epoch):
+    def log_loss(self, sess, tf_file_writer, evaluations, epoch):
         raise NotImplementedError("Add implementation to write average losses to the stats file and return them.")
 
 
@@ -454,7 +454,7 @@ class SelfplayExecutor:
     def _create_evaluation(self):
         """Creates an evaluation of the current MCTSExecutor and adds it to self.evaluations."""
         evaluation = Evaluation(self.current_executor.start_game_state)
-        evaluation.probabilities = self.current_executor.move_probabilities(self.temperature)
+        evaluation.probabilities = self.current_executor.move_probabilities(1.0)
 
         self.evaluations.append(evaluation)
 
@@ -509,10 +509,10 @@ class TrainingExecutor(threading.Thread):
                             event.result = self._run_train_batch_internal(sess, args)
                         elif type == 'log_test_loss':
                             file_writer, batch_size, epoch = args
-                            event.result = self._log_test_loss_internal(file_writer, batch_size, epoch)
+                            event.result = self._log_test_loss_internal(sess, file_writer, batch_size, epoch)
                         elif type == 'log_train_loss':
                             file_writer, batch_size, epoch = args
-                            event.result = self._log_test_loss_internal(file_writer, batch_size, epoch)
+                            event.result = self._log_test_loss_internal(sess, file_writer, batch_size, epoch)
                         elif type == 'save':
                             event.result = self.neural_network.save_weights(sess, args)
 
@@ -549,7 +549,7 @@ class TrainingExecutor(threading.Thread):
             with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(self._add_to_n_training(1))), 'wb') as train_file:
                 pickle.dump(train_eval, train_file)
         for test_eval in test_evals:
-            with open(os.path.join(self.test_dir, "{0:010d}.pickle".format(self._add_to_n_training(1))), 'wb') as test_file:
+            with open(os.path.join(self.test_dir, "{0:010d}.pickle".format(self._add_to_n_test(1))), 'wb') as test_file:
                 pickle.dump(test_eval, test_file)
 
     def save(self, filename):
@@ -590,7 +590,7 @@ class TrainingExecutor(threading.Thread):
         event.wait()
         return event.result
 
-    def _log_test_loss_internal(self, file_writer, batch_size, epoch):
+    def _log_test_loss_internal(self, sess, file_writer, batch_size, epoch):
         test_numbers = np.random.randint(0, self._get_n_test(), size=batch_size)
 
         evals = []
@@ -601,7 +601,7 @@ class TrainingExecutor(threading.Thread):
             except IOError:
                 pass
 
-        return self.neural_network.log_loss(file_writer, evals, epoch)
+        return self.neural_network.log_loss(sess, file_writer, evals, epoch)
 
     def log_training_loss(self, file_writer, epoch, batch_size=32):
         event = threading.Event()
@@ -611,7 +611,7 @@ class TrainingExecutor(threading.Thread):
         event.wait()
         return event.result
 
-    def _log_training_loss_internal(self, file_writer, batch_size, epoch):
+    def _log_training_loss_internal(self, sess, file_writer, batch_size, epoch):
         eval_numbers = np.random.randint(0, self._get_n_training(), size=batch_size)
 
         evals = []
@@ -622,7 +622,7 @@ class TrainingExecutor(threading.Thread):
             except IOError:
                 pass
 
-        return self.neural_network.log_loss(file_writer, evals, epoch)
+        return self.neural_network.log_loss(sess, file_writer, evals, epoch)
 
 
 class ModelEvaluator:

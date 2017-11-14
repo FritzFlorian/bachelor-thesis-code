@@ -61,7 +61,7 @@ class ParallelSelfplayEvaluationPool:
         self.nn_server_two.start()
 
         selfplay_pool = multiprocessing.Pool(processes=self.pool_size)
-        games_per_tournament = round(self.n_games / self.pool_size) + 1
+        games_per_tournament = max(round(self.n_games / self.pool_size), 1)
 
         parameters =[]
         for _ in range(self.pool_size):
@@ -120,7 +120,7 @@ class ParallelAITrivialPool:
         self.nn_server.start()
 
         selfplay_pool = multiprocessing.Pool(processes=self.pool_size)
-        games_per_tournament = round(self.n_games / self.pool_size) + 1
+        games_per_tournament = max(round(self.n_games / self.pool_size), 1)
 
         parameters = []
         for _ in range(self.pool_size):

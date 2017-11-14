@@ -6,6 +6,7 @@ from reversi.game_core import Field, Board, GameState
 import multiprocessing
 import os
 import time
+import random
 
 
 BOARD_HEIGHT = 8
@@ -16,13 +17,13 @@ BOARD_WIDTH = 8
 N_RAW_VALUES = 3
 FLOAT = tf.float32
 
-L2_LOSS_WEIGHT = 1.0
+L1_LOSS_WEIGHT = 0.00001
 
 # Number of games played to gather training data per epoch (per NN configuration)
-GAMES_PER_EPOCH = 80
-SIMULATIONS_PER_GAME_TURN = 100
+GAMES_PER_EPOCH = 16
+SIMULATIONS_PER_GAME_TURN = 20
 
-TRAINING_BATCHES_PER_EPOCH = 10_000
+TRAINING_BATCHES_PER_EPOCH = 2_000
 BATCH_SIZE = 32
 
 N_EPOCHS = 10
@@ -30,10 +31,10 @@ N_EPOCHS = 10
 CHECKPOINT_FOLDER = './checkpoints'
 DATA_FOLDER = './data'
 
-N_EVALUATION_GAMES = 40
+N_EVALUATION_GAMES = 16
 NEEDED_AVG_SCORE = 0.55
 
-N_AI_EVALUATION_GAMES = 24
+N_AI_EVALUATION_GAMES = 8
 
 
 def main():
@@ -61,7 +62,7 @@ def main():
     create_directory(os.path.join(CHECKPOINT_FOLDER, run_dir))
     stats_file = os.path.join(CHECKPOINT_FOLDER, run_dir, 'stats.csv')
     with open(stats_file, 'w') as file:
-        file.write('epoch,nn_score,ai_score,nn_stones,ai_stones')
+        file.write('epoch,nn_score,ai_score,nn_stones,ai_stones\n')
 
     for epoch in range(N_EPOCHS):
         current_data_dir = os.path.join(DATA_FOLDER, run_dir, 'epoch-{0:05d}'.format(epoch))
@@ -69,18 +70,13 @@ def main():
         current_ckpt_file = os.path.join(current_ckpt_dir, 'checkpoint.ckpt')
         create_directory(current_ckpt_dir)
 
-        # Evaluate vs. ai trivial
-        parallel_tournament = distribution.ParallelAITrivialPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
-                                                                 best_model_file, N_EVALUATION_GAMES, 1.0)
-        scores, stones = parallel_tournament.run()
-        print('Tournament Scores: AI {} vs. NN {}'.format(scores[1], scores[0]))
-        print('Tournament Stones: AI {} vs. NN {}'.format(stones[1], stones[0]))
-        with open(stats_file, 'a') as file:
-            file.write('{},{},{},{},{}'.format(epoch, scores[0], scores[1], stones[0], stones[1]))
-
         training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
         training_executor.start()
         def game_finished(evaluations):
+            for evaluation in evaluations:
+                # Try to prevent overfitting a little
+                if random.choice([True, False]):
+                    evaluation.mirror_vertical()
             print('Add {} evaluations to training data.'.format(len(evaluations)))
             training_executor.add_examples(evaluations)
 
@@ -92,13 +88,18 @@ def main():
         parallel_selfplay.run()
 
         # Train a new neural network
+        test_file_writer = tf.summary.FileWriter('./tb/graph-{}-test'.format(epoch), tf.get_default_graph())
+        train_file_writer = tf.summary.FileWriter('./tb/graph-{}-train'.format(epoch), tf.get_default_graph())
         print("Start training for epoch {}...".format(epoch))
         for batch in range(TRAINING_BATCHES_PER_EPOCH):
             training_executor.run_training_batch(BATCH_SIZE)
-            if batch % 100 == 0:
+            if batch % 50 == 0:
                 print('{} batches executed.'.format(batch))
+                training_executor.log_test_loss(test_file_writer, batch)
+                training_executor.log_training_loss(train_file_writer, batch)
         training_executor.save(current_ckpt_file)
-
+        test_file_writer.close()
+        train_file_writer.close()
 
         # See if we choose the new one as best network
         print("Start Evaluation versus last epoch...")
@@ -114,8 +115,18 @@ def main():
         if scores[1] >= NEEDED_AVG_SCORE:
             print('Using new model, as its average score is {} >= {}'.format(scores[1], NEEDED_AVG_SCORE))
             training_executor.save(best_model_file)
-
         training_executor.stop()
+
+        if scores[1] >= NEEDED_AVG_SCORE:
+            # Evaluate vs. ai trivial
+            print("Start AI Evaluation for epoch {}...".format(epoch))
+            parallel_tournament = distribution.ParallelAITrivialPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
+                                                                         best_model_file, N_EVALUATION_GAMES, 1.0)
+            scores, stones = parallel_tournament.run()
+            print('Tournament Scores: AI {} vs. NN {}'.format(scores[1], scores[0]))
+            print('Tournament Stones: AI {} vs. NN {}'.format(stones[1], stones[0]))
+            with open(stats_file, 'a') as file:
+                file.write('{},{},{},{},{}\n'.format(epoch, scores[0], scores[1], stones[0], stones[1]))
 
 
 def create_directory(directory):
@@ -131,37 +142,42 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         self._construct_inputs()
 
         # Convolutional Part - Should be replaced with proper structure (residual blocks)
-        conv1 = self._construct_conv_layer(self.one_hot_x, 32, 'cov1')
+        conv1 = self._construct_conv_layer(self.one_hot_x, 48, 'cov1')
         conv1_norm = tf.layers.batch_normalization(conv1, training=self.training)
-        conv2 = self._construct_conv_layer(conv1_norm, 32, 'conv2')
+        conv2 = self._construct_conv_layer(conv1_norm, 48, 'conv2')
         conv2_norm = tf.layers.batch_normalization(conv2, training=self.training)
-        conv3 = self._construct_conv_layer(conv2_norm, 32, 'conv3')
+        conv3 = self._construct_conv_layer(conv2_norm, 48, 'conv3')
         conv3_norm = tf.layers.batch_normalization(conv3, training=self.training)
+        conv4 = self._construct_conv_layer(conv3_norm, 48, 'conv4')
+        conv4_norm = tf.layers.batch_normalization(conv4, training=self.training)
+        conv5 = self._construct_conv_layer(conv4_norm, 48, 'conv5')
+        conv5_norm = tf.layers.batch_normalization(conv5, training=self.training)
 
         # Probability Head
-        prob_conv = self._construct_conv_layer(conv3_norm, 4, 'prob_conv',
+        prob_conv = self._construct_conv_layer(conv5_norm, 4, 'prob_conv',
                                                kernel=[1, 1], stride=1)
         flattend_prob_conv = tf.reshape(prob_conv, [-1, 4 * BOARD_WIDTH * BOARD_HEIGHT])
         # Linear output layer for probabilities
         self.out_prob_logits = tf.layers.dense(inputs=flattend_prob_conv, units=BOARD_WIDTH * BOARD_HEIGHT,
-                                               kernel_regularizer=tf.contrib.layers.l1_regularizer(L2_LOSS_WEIGHT))
+                                               kernel_regularizer=tf.contrib.layers.l1_regularizer(L1_LOSS_WEIGHT))
         self.out_prob = tf.nn.softmax(self.out_prob_logits)
 
         # Value Head
         value_conv = self._construct_conv_layer(conv3_norm, 1, 'value_conv',
                                                kernel=[1, 1], stride=1)
         value_full = tf.layers.dense(inputs=flattend_prob_conv, units=64, activation=None,
-                                     kernel_regularizer=tf.contrib.layers.l1_regularizer(L2_LOSS_WEIGHT))
+                                     kernel_regularizer=tf.contrib.layers.l1_regularizer(L1_LOSS_WEIGHT))
         value_scalar = tf.layers.dense(inputs=value_full, units=1, activation=None,
-                                       kernel_regularizer=tf.contrib.layers.l1_regularizer(L2_LOSS_WEIGHT))
+                                       kernel_regularizer=tf.contrib.layers.l1_regularizer(L1_LOSS_WEIGHT))
         self.out_value = tf.div(tf.add(tf.nn.tanh(value_scalar), [1]), [2])
 
         # Losses
-        value_loss = tf.losses.mean_squared_error(self.y_value, self.out_value)
-        prob_loss = tf.losses.sigmoid_cross_entropy(self.y_prob, self.out_prob_logits)
+        self.value_loss = tf.losses.mean_squared_error(self.y_value, self.out_value)
+        self.prob_loss = tf.losses.sigmoid_cross_entropy(self.y_prob, self.out_prob_logits)
         reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+        self.reg_loss = tf.add_n(reg_losses)
 
-        self.loss = tf.add_n([value_loss, prob_loss] + reg_losses, name="loss")
+        self.loss = tf.add_n([self.value_loss, self.prob_loss, self.reg_loss], name="loss")
 
         # Training Operation
         optimizer = tf.train.AdamOptimizer(learning_rate=0.002, beta1=0.8, beta2=0.995)
@@ -171,6 +187,9 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         self.saver = tf.train.Saver()
         self.init = tf.global_variables_initializer()
         self.loss_summary = tf.summary.scalar('loss', self.loss)
+        self.value_loss_summary = tf.summary.scalar('value loss', self.value_loss)
+        self.prob_loss_summary = tf.summary.scalar('prob loss', self.prob_loss)
+        self.reg_loss_summary = tf.summary.scalar('reg loss', self.reg_loss)
 
     def _construct_inputs(self):
         with tf.name_scope("inputs"):
@@ -199,16 +218,26 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
                 strides=[stride, stride],
                 padding="same",
                 activation=tf.nn.relu,
-                kernel_regularizer=tf.contrib.layers.l1_regularizer(L2_LOSS_WEIGHT))
+                kernel_regularizer=tf.contrib.layers.l1_regularizer(L1_LOSS_WEIGHT))
             return conv
 
-    def log_loss(self, tf_file_writer, evaluations, epoch):
+    def log_loss(self, sess, tf_file_writer, evaluations, epoch):
         inputs, prob_outputs, value_outputs = SimpleNeuralNetwork._evaluations_to_input(evaluations)
 
-        loss = self.loss.eval(feed_dict={self.raw_x: inputs, self.out_prob: prob_outputs,
-                                         self.out_value: value_outputs})
-        summary_str = self.loss_summary.eval(feed_dict={loss: loss})
-        tf_file_writer.add_summary(summary_str, epoch)
+        # Get all the losses
+        prob_loss, value_loss, reg_loss, loss =\
+            sess.run([self.prob_loss, self.value_loss, self.reg_loss, self.loss],
+                      feed_dict={self.raw_x: inputs, self.y_prob: prob_outputs, self.y_value: value_outputs})
+
+        reg_log_summary_str = self.reg_loss_summary.eval(feed_dict={self.reg_loss: reg_loss})
+        value_log_summary_str = self.value_loss_summary.eval(feed_dict={self.value_loss: value_loss})
+        prob_log_summary_str = self.prob_loss_summary.eval(feed_dict={self.prob_loss: prob_loss})
+        log_summary_str = self.loss_summary.eval(feed_dict={self.loss: loss})
+
+        tf_file_writer.add_summary(log_summary_str, epoch)
+        tf_file_writer.add_summary(reg_log_summary_str, epoch)
+        tf_file_writer.add_summary(value_log_summary_str, epoch)
+        tf_file_writer.add_summary(prob_log_summary_str, epoch)
 
         return loss
 
