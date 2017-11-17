@@ -397,6 +397,7 @@ class NeuralNetworkExecutorClient:
 
         # Undo our random rotation on the instance.
         evaluation.undo_transformations()
+        evaluation.convert_from_normal()
 
         return evaluation
 
@@ -447,9 +448,12 @@ class MCTSNode:
 
     def _expand(self, evaluation: Evaluation, next_states):
         self.children = dict()
+        # print('====================')
         for next_state in next_states:
             move = next_state.last_move
+            # print(evaluation.probabilities[move])
             self.children[move] = MCTSNode(evaluation.probabilities[move])
+        # print('====================')
 
     def _select_move(self):
         # Select a move using the variant of the PUCT algorithm
@@ -472,7 +476,7 @@ class MCTSNode:
             else:
                 # TODO: See how to change the rating of reversi to set this properly
                 # This should be 'neutral' for unevaluated nodes
-                q = 0.5
+                q = 0.0
 
             move_value = u + q
             if move_value > best_move_value:
@@ -531,15 +535,16 @@ class SelfplayExecutor:
     corresponding probability/value targets that can then be used as training data."""
     def __init__(self, game_state, nn_executor, n_simulations_per_move):
         self.current_executor = MCTSExecutor(game_state, nn_executor)
+        self.current_game_state = copy.deepcopy(game_state)
         self.nn_executor = nn_executor
         self.n_simulations_per_move = n_simulations_per_move
         self.evaluations = []
-        self.temperature = 2.0
+        self.temperature = 1.0
 
     def run(self):
         while True:
             # Make sure the game is not finished
-            next_states = self.current_executor.start_game_state.get_next_possible_moves()
+            next_states = self.current_game_state.get_next_possible_moves()
             if len(next_states) == 0:
                 break
 
@@ -558,12 +563,13 @@ class SelfplayExecutor:
             index = np.random.choice(len(moves), p=probabilities)
             (player, pos, choice) = move = moves[index]
             new_game_state = self.current_executor.start_game_state.execute_move(player, pos, choice)
+            self.current_game_state = copy.deepcopy(new_game_state)
 
             # Update our executor. We keep the part of the search tree that was selected.
             selected_child = self.current_executor.root_node.children[move]
             self.current_executor = MCTSExecutor(new_game_state, self.nn_executor, selected_child)
 
-        actual_results = self.current_executor.start_game_state.calculate_scores()
+        actual_results = self.current_game_state.calculate_scores()
         for evaluation in self.evaluations:
             evaluation.expected_result = actual_results
 
@@ -571,8 +577,8 @@ class SelfplayExecutor:
 
     def _create_evaluation(self):
         """Creates an evaluation of the current MCTSExecutor and adds it to self.evaluations."""
-        evaluation = Evaluation(self.current_executor.start_game_state)
-        evaluation.probabilities = self.current_executor.move_probabilities(1.0)
+        evaluation = Evaluation(self.current_game_state)
+        evaluation.probabilities = self.current_executor.move_probabilities(0.5)
 
         self.evaluations.append(evaluation)
 
@@ -687,7 +693,7 @@ class TrainingExecutor(threading.Thread):
         return event.result
 
     def _run_train_batch_internal(self, sess, batch_size):
-        eval_numbers = np.random.randint(0, self._get_n_training(), size=batch_size)
+        eval_numbers = np.random.random_integers(0, self._get_n_training(), size=batch_size)
 
         evals = []
         for eval_number in eval_numbers:
