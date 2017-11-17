@@ -85,7 +85,7 @@ class TestScoring(unittest.TestCase):
         scores = game.calculate_scores()
 
         self.assertEqual(scores[PLAYER_ONE], 1.0)
-        self.assertEqual(scores[PLAYER_TWO], 0.0)
+        self.assertEqual(scores[PLAYER_TWO], -1.0)
 
     def test_tie_scoring(self):
         board = Board("""\
@@ -100,9 +100,9 @@ class TestScoring(unittest.TestCase):
         game = GameState(board)
         scores = game.calculate_scores()
 
-        self.assertEqual(scores[PLAYER_ONE], 0.5)
-        self.assertEqual(scores[PLAYER_TWO], 0.5)
-        self.assertEqual(scores[PLAYER_THREE], 0.0)
+        self.assertEqual(scores[PLAYER_ONE], 0.0)
+        self.assertEqual(scores[PLAYER_TWO], 0.0)
+        self.assertEqual(scores[PLAYER_THREE], -1.0)
 
 
 class TestMoveExecution(unittest.TestCase):

@@ -288,9 +288,9 @@ class GameState:
         if rank == 1:
             return 1.0
         if rank == 2:
-            return 0.0
+            return -1.0
 
-        return 0.0
+        return -1.0
 
 
 class Board:
