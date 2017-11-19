@@ -28,6 +28,7 @@ class Evaluation:
     NOTE: These transformations currently only work with quadratic fields!"""
     def __init__(self, game_state: GameState):
         self.game_state = game_state
+        self.possible_moves = None
 
         # Add dummy values for move probabilities and expected game results
         next_moves = self.game_state.get_next_possible_moves()
@@ -572,6 +573,7 @@ class SelfplayExecutor:
         actual_results = self.current_game_state.calculate_scores()
         for evaluation in self.evaluations:
             evaluation.expected_result = actual_results
+            self._prepare_eval_for_saving(evaluation)
 
         return self.evaluations
 
@@ -581,6 +583,13 @@ class SelfplayExecutor:
         evaluation.probabilities = self.current_executor.move_probabilities(0.5)
 
         self.evaluations.append(evaluation)
+
+    def _prepare_eval_for_saving(self, evaluation):
+        """Apply all needed transformations and add metadata needed before saving this training instance."""
+        evaluation.convert_to_normal()
+        next_game_states = evaluation.game_state.get_next_possible_moves()
+        possible_moves = [next_game_state.last_move for next_game_state in next_game_states]
+        evaluation.possible_moves = possible_moves
 
 
 class TrainingExecutor(threading.Thread):
@@ -636,7 +645,7 @@ class TrainingExecutor(threading.Thread):
                             event.result = self._log_test_loss_internal(sess, file_writer, batch_size, epoch)
                         elif type == 'log_train_loss':
                             file_writer, batch_size, epoch = args
-                            event.result = self._log_test_loss_internal(sess, file_writer, batch_size, epoch)
+                            event.result = self._log_training_loss_internal(sess, file_writer, batch_size, epoch)
                         elif type == 'save':
                             event.result = self.neural_network.save_weights(sess, args)
 
@@ -667,14 +676,39 @@ class TrainingExecutor(threading.Thread):
             result = self._n_test = self._n_test + amount
         return result
 
-    def add_examples(self, evaluations):
-        train_evals, test_evals = model_selection.train_test_split(evaluations, test_size=0.2)
-        for train_eval in train_evals:
-            with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(self._add_to_n_training(1))), 'wb') as train_file:
-                pickle.dump(train_eval, train_file)
-        for test_eval in test_evals:
-            with open(os.path.join(self.test_dir, "{0:010d}.pickle".format(self._add_to_n_test(1))), 'wb') as test_file:
-                pickle.dump(test_eval, test_file)
+    def add_examples(self, evaluations, test_game=False):
+        if test_game:
+            directory = self.test_dir
+            number = self._add_to_n_test(1)
+        else:
+            directory = self.training_dir
+            number = self._add_to_n_training(1)
+
+        with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'wb') as file:
+            pickle.dump(evaluations, file)
+
+    def get_examples(self, n_examples, test_game=False):
+        if test_game:
+            directory = self.test_dir
+            max_number = self._get_n_test()
+        else:
+            directory = self.training_dir
+            max_number = self._get_n_training()
+
+        evaluations = []
+        while len(evaluations) < n_examples:
+            number = random.randint(0, max_number - 1)
+            try:
+                with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'rb') as file:
+                    loaded_evaluations = pickle.load(file)
+                    random.shuffle(loaded_evaluations)
+
+                    end_index = round(len(loaded_evaluations)/3)
+                    evaluations = evaluations + loaded_evaluations[:end_index]
+            except IOError:
+                pass
+
+        return evaluations
 
     def save(self, filename):
         event = threading.Event()
@@ -693,16 +727,7 @@ class TrainingExecutor(threading.Thread):
         return event.result
 
     def _run_train_batch_internal(self, sess, batch_size):
-        eval_numbers = np.random.random_integers(0, self._get_n_training(), size=batch_size)
-
-        evals = []
-        for eval_number in eval_numbers:
-            try:
-                with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(eval_number)), 'rb') as file:
-                    evals.append(pickle.load(file))
-            except IOError:
-                pass
-
+        evals = self.get_examples(batch_size)
         self.neural_network.train_batch(sess, evals)
         return None
 
@@ -715,16 +740,7 @@ class TrainingExecutor(threading.Thread):
         return event.result
 
     def _log_test_loss_internal(self, sess, file_writer, batch_size, epoch):
-        test_numbers = np.random.randint(0, self._get_n_test(), size=batch_size)
-
-        evals = []
-        for test_number in test_numbers:
-            try:
-                with open(os.path.join(self.test_dir, "{0:010d}.pickle".format(test_number)), 'rb') as file:
-                    evals.append(pickle.load(file))
-            except IOError:
-                pass
-
+        evals = self.get_examples(batch_size, test_game=True)
         return self.neural_network.log_loss(sess, file_writer, evals, epoch)
 
     def log_training_loss(self, file_writer, epoch, batch_size=32):
@@ -736,16 +752,7 @@ class TrainingExecutor(threading.Thread):
         return event.result
 
     def _log_training_loss_internal(self, sess, file_writer, batch_size, epoch):
-        eval_numbers = np.random.randint(0, self._get_n_training(), size=batch_size)
-
-        evals = []
-        for eval_number in eval_numbers:
-            try:
-                with open(os.path.join(self.training_dir, "{0:010d}.pickle".format(eval_number)), 'rb') as file:
-                    evals.append(pickle.load(file))
-            except IOError:
-                pass
-
+        evals = self.get_examples(batch_size)
         return self.neural_network.log_loss(sess, file_writer, evals, epoch)
 
 
