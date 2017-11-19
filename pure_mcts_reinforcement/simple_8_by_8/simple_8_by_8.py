@@ -22,10 +22,10 @@ L2_LOSS_WEIGHT = 0.005
 
 # Number of games played to gather training data per epoch (per NN configuration)
 GAMES_PER_EPOCH = 24
-SIMULATIONS_PER_GAME_TURN = 40
+SIMULATIONS_PER_GAME_TURN = 80
 
-TRAINING_BATCHES_PER_EPOCH = 1_000
-BATCH_SIZE = 128
+TRAINING_BATCHES_PER_EPOCH = 1_500
+BATCH_SIZE = 64
 
 N_EPOCHS = 10
 
@@ -34,7 +34,7 @@ DATA_FOLDER = 'data'
 BEST_CHECKPOINT_FOLDER = 'best-checkpoint'
 
 N_EVALUATION_GAMES = 16
-NEEDED_AVG_SCORE = 0.55
+NEEDED_AVG_SCORE = 0.0
 
 N_AI_EVALUATION_GAMES = 8
 
@@ -81,6 +81,7 @@ def main():
         create_directory(current_ckpt_dir)
 
         # Make sure to add training data to our training executor.
+        reuse_old_training_data = os.path.exists(current_data_dir)
         training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
         training_executor.start()
         def game_finished(evaluations):
@@ -94,7 +95,7 @@ def main():
 
         # Run selfplay to get training data
         print("Start selfplay for epoch {}...".format(epoch))
-        if os.path.exists(current_data_dir):
+        if reuse_old_training_data:
             print('Skipping selfplay and use existing data...')
             training_executor._n_test = count_directory_items(os.path.join(current_data_dir, 'test'))
             training_executor._n_training = count_directory_items(os.path.join(current_data_dir, 'training'))
@@ -102,13 +103,13 @@ def main():
             parallel_selfplay = distribution.ParallelSelfplayPool(initial_game_state, SimpleNeuralNetwork(),
                                                                   best_model_file, GAMES_PER_EPOCH, game_finished,
                                                                   simulations_per_turn=SIMULATIONS_PER_GAME_TURN,
-                                                                  pool_size=8)
+                                                                  pool_size=8, batch_size=6)
             parallel_selfplay.run()
 
         # Train a new neural network
         train_file_writer = tf.summary.FileWriter('./tb/graph-{}-train'.format(epoch), tf.get_default_graph())
         print("Start training for epoch {}...".format(epoch))
-        for batch in range(TRAINING_BATCHES_PER_EPOCH):
+        for batch in range(1, TRAINING_BATCHES_PER_EPOCH + 1):
             training_executor.run_training_batch(BATCH_SIZE)
             if batch % 50 == 0:
                 print('{} batches executed.'.format(batch))
@@ -161,16 +162,16 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
 
         with tf.name_scope('Convolutional-Layers'):
             conv1 = self._construct_conv_layer(self.one_hot_x, 32, 'cov1')
-            conv2 = self._construct_conv_layer(conv1, 32, 'conv2')
-            conv3 = self._construct_conv_layer(conv2, 32, 'conv3')
-            conv4 = self._construct_conv_layer(conv3, 32, 'conv4')
-            conv5 = self._construct_conv_layer(conv4, 32, 'conv5')
+            res1 = self._construct_residual_block(conv1, 32, 'res1')
+            res2 = self._construct_residual_block(res1, 32, 'res2')
+            res3 = self._construct_residual_block(res2, 32, 'res3')
+            res4 = self._construct_residual_block(res3, 32, 'res4')
 
         with tf.name_scope('Probability-Head'):
             n_filters = 2
 
             # Reduce the big amount of convolutional filters to a reasonable size.
-            prob_conv = self._construct_conv_layer(conv5, n_filters, 'prob_conv', kernel=[1, 1], stride=1)
+            prob_conv = self._construct_conv_layer(res4, n_filters, 'prob_conv', kernel=[1, 1], stride=1)
             # Flattern the output tensor to allow it as input to a fully connected layer.
             flattered_prob_conv = tf.reshape(prob_conv, [-1, n_filters * BOARD_WIDTH * BOARD_HEIGHT])
             # Add a fully connected hidden layer.
@@ -185,7 +186,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
 
         with tf.name_scope('Value-Head'):
             # Reduce the big amount of convolutional filters to a reasonable size.
-            value_conv = self._construct_conv_layer(conv5, 1, 'value_conv', kernel=[1, 1], stride=1)
+            value_conv = self._construct_conv_layer(res4, 1, 'value_conv', kernel=[1, 1], stride=1)
             # Flattern the output tensor to allow it as input to a fully connected layer.
             flattered_value_conv = tf.reshape(value_conv, [-1, 1 * BOARD_WIDTH * BOARD_HEIGHT])
             # Add a fully connected hidden layer.
@@ -215,7 +216,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             self.reg_loss = tf.add_n(reg_losses)
 
             # The summ of all three are our total loss
-            self.loss = tf.add_n([self.value_loss, self.prob_loss, self.reg_loss], name="loss")
+            self.loss = tf.add_n([self.prob_loss, self.value_loss, self.reg_loss], name="loss")
 
         with tf.name_scope('Training'):
             # For now simply go with the 'go-to' adam optimizer.
@@ -267,15 +268,24 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
                 padding="same",
                 activation=tf.nn.leaky_relu,
                 kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT))
-            if not normalization:
+            if normalization:
                 return conv
 
             return tf.layers.batch_normalization(conv, training=self.training)
 
+    def _construct_residual_block(self, input, n_filters, name):
+        with tf.name_scope(name):
+            conv1 = self._construct_conv_layer(input, n_filters, 'conv1')
+            conv1_relu = tf.nn.leaky_relu(conv1)
+            conv2 = self._construct_conv_layer(conv1_relu, n_filters, 'conv2')
+
+            skip = input + conv2
+            return tf.nn.leaky_relu(skip)
+
+
     def _construct_dense_layer(self, input, n_nodes, name, activation=None):
         return tf.layers.dense(inputs=input, units=n_nodes, name=name, activation=activation,
                                kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT))
-
 
     def log_loss(self, sess, tf_file_writer, evaluations, epoch):
         inputs, prob_outputs, value_outputs = SimpleNeuralNetwork._evaluations_to_input(evaluations)
@@ -313,7 +323,8 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         self.init.run()
 
     def execute_batch(self, sess, evaluations):
-        inputs = [SimpleNeuralNetwork._game_sate_to_input(evaluation.game_state) for evaluation in evaluations]
+        inputs = [SimpleNeuralNetwork._game_sate_to_input(evaluation.game_state, evaluation.possible_moves)
+                  for evaluation in evaluations]
         outputs = sess.run([self.out_prob, self.out_value], feed_dict={self.one_hot_x: inputs})
 
         for i in range(len(evaluations)):
@@ -331,7 +342,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         return evaluations
 
     @staticmethod
-    def _game_sate_to_input(game_state):
+    def _game_sate_to_input(game_state, possible_moves):
         board = game_state.board
 
         result = np.empty([board.height, board.width], dtype=int)
@@ -345,9 +356,12 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         result = np.reshape(result, [board.height, board.width, N_RAW_VALUES + 1])
 
         # Mark all possible moves in the last one hot layer
-        possible_moves = game_state.get_next_possible_moves()
+        if not possible_moves:
+            next_game_states = game_state.get_next_possible_moves()
+            possible_moves = [next_game_state.last_move for next_game_state in next_game_states]
+
         for possible_move in possible_moves:
-            x, y = possible_move.last_move[1]
+            x, y = possible_move[1]
             result[y, x, N_RAW_VALUES] = 1
 
         return result
@@ -367,7 +381,8 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         for evaluation in evaluations:
             evaluation.convert_to_normal()
 
-        inputs = [SimpleNeuralNetwork._game_sate_to_input(evaluation.game_state) for evaluation in evaluations]
+        inputs = [SimpleNeuralNetwork._game_sate_to_input(evaluation.game_state, evaluation.possible_moves)
+                  for evaluation in evaluations]
         inputs = np.array(inputs)
 
         value_outputs = np.array([[evaluation.expected_result[Field.PLAYER_ONE]] for evaluation in evaluations])
