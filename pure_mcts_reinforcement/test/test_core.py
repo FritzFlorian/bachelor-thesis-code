@@ -25,8 +25,11 @@ class TestEvaluation(unittest.TestCase):
         evaluation.expected_result[Field.PLAYER_THREE] = 0.1
 
         evaluation.convert_to_normal()
+        self.assertEqual(evaluation.active_player, Field.PLAYER_TWO)
         self.assertEqual(evaluation.game_state.next_player(), Field.PLAYER_ONE)
         self.assertEqual(evaluation.expected_result[Field.PLAYER_THREE], 0.7)
+        self.assertEqual(evaluation.expected_result[Field.PLAYER_TWO], 0.1)
+        self.assertEqual(evaluation.expected_result[Field.PLAYER_ONE], 0.2)
         self.assertFalse((Field.PLAYER_ONE, (1, 2), None) in evaluation.probabilities)
         self.assertEqual(evaluation.probabilities[(Field.PLAYER_THREE, (1, 2), None)], 1.0)
         self.assertEqual(evaluation.game_state.board[(1, 0)], Field.PLAYER_THREE)
@@ -34,6 +37,7 @@ class TestEvaluation(unittest.TestCase):
         self.assertEqual(evaluation.game_state.player_overwrites[Field.PLAYER_ONE], 1)
 
         evaluation.convert_from_normal()
+        self.assertEqual(evaluation.active_player, Field.PLAYER_TWO)
         self.assertEqual(evaluation.game_state.next_player(), Field.PLAYER_TWO)
         self.assertEqual(evaluation.expected_result[Field.PLAYER_ONE], 0.7)
         self.assertFalse((Field.PLAYER_THREE, (1, 2), None) in evaluation.probabilities)
@@ -60,7 +64,6 @@ class TestEvaluation(unittest.TestCase):
         evaluation._mirror_vertical()
         self.assertEqual(evaluation.game_state.board[(0, 0)], Field.PLAYER_THREE)
         self.assertEqual(evaluation.game_state.board[(1, 2)], Field.PLAYER_ONE)
-        print(evaluation.probabilities.items())
         self.assertEqual(evaluation.probabilities[(Field.PLAYER_ONE, (1, 0), None)], 1.0)
 
     def test_transformation_rot90(self):

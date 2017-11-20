@@ -101,11 +101,12 @@ class Evaluation:
                 self.game_state._cached_next_player.rotate_by(rotation_amount, n_players)
 
         # Rotate evaluation stats
-        old_expected_result = copy.deepcopy(self.expected_result)
+        old_expected_result = self.expected_result
+        self.expected_result = dict()
         for player, result in old_expected_result.items():
             self.expected_result[player.rotate_by(rotation_amount, n_players)] = result
 
-        old_probabilities = copy.deepcopy(self.probabilities)
+        old_probabilities = self.probabilities
         self.probabilities = dict()
         for (player, pos, choice), probability in old_probabilities.items():
             self.probabilities[(player.rotate_by(rotation_amount, n_players), pos, choice)] = probability
@@ -464,7 +465,7 @@ class MCTSNode:
         sqrt_total_child_visits = math.sqrt(self.visits)
         # constant determining exploration
         # TODO: alter this value to find good fit
-        c_puct = 1.0
+        c_puct = 0.5
 
         best_move_value = -100.0
         best_move = None
@@ -571,6 +572,16 @@ class SelfplayExecutor:
             self.current_executor = MCTSExecutor(new_game_state, self.nn_executor, selected_child)
 
         actual_results = self.current_game_state.calculate_scores()
+
+        # Add every possible rotation
+        old_evaluations = self.evaluations
+        self.evaluations = []
+        for evaluation in old_evaluations:
+            for i in range(7):
+                transformed_evaluation = copy.deepcopy(evaluation)
+                transformed_evaluation.apply_transformation(i)
+                self.evaluations.append(transformed_evaluation)
+
         for evaluation in self.evaluations:
             evaluation.expected_result = actual_results
             self._prepare_eval_for_saving(evaluation)
@@ -697,13 +708,13 @@ class TrainingExecutor(threading.Thread):
 
         evaluations = []
         while len(evaluations) < n_examples:
-            number = random.randint(0, max_number - 1)
+            number = random.randint(1, max_number)
             try:
                 with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'rb') as file:
                     loaded_evaluations = pickle.load(file)
                     random.shuffle(loaded_evaluations)
 
-                    end_index = round(len(loaded_evaluations)/3)
+                    end_index = min(round(n_examples / 4 + 1), len(loaded_evaluations))
                     evaluations = evaluations + loaded_evaluations[:end_index]
             except IOError:
                 pass
