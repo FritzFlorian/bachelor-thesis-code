@@ -47,33 +47,42 @@ class Evaluation:
         self._applied_transformations = []
 
     def convert_to_normal(self):
-        """Converts the evaluation to a form where the next active player is player one."""
+        """Converts the evaluation to a form where the next active player is player one.
+
+        Returns the converted evaluation and does not change the original data!
+        If the evaluation is already in normal form it is simply returned."""
         current_active_player = self.game_state.calculate_next_player()
 
         # Active Player is already player one
         if current_active_player == Field.PLAYER_ONE:
-            return
+            return self
 
         rotation_amount = self.game_state.board.n_players - current_active_player.to_player_int() + 1
-
-        self._rotate_players(rotation_amount)
+        return self._rotate_players(rotation_amount)
 
     def convert_from_normal(self):
-        """Converts the evaluation from normal form to its original form."""
+        """Converts the evaluation from normal form to its original form.
+
+        Returns the converted evaluation and does not change the original data!
+        If the evaluation is already in normal form it is simply returned."""
         current_active_player = self.game_state.calculate_next_player()
 
         # Active Player is already player one
         if current_active_player == self.active_player:
-            return
+            return self
 
         rotation_amount = self.active_player.to_player_int() - 1
-        self._rotate_players(rotation_amount)
+        return self._rotate_players(rotation_amount)
 
     def _rotate_players(self, rotation_amount):
         """Rotate player numbers. Rotation by one means player one will be player two, and so on."""
+        # Do not mutate our object. This could easily lead to hard to spot bugs.
+        result = copy.deepcopy(self)
+
         # Rotate the pieces on the board
+        # TODO: Rotate in one go, not in multiple inversions
         for i in range(rotation_amount):
-            self.game_state.board.execute_inversion()
+            result.game_state.board.execute_inversion()
 
         n_players = self.game_state.board.n_players
         # Adjust values describing the current game state
@@ -81,166 +90,162 @@ class Evaluation:
             (player, pos, choice) = self.game_state.last_move
             if isinstance(choice, Field):
                 choice = choice.rotate_by(rotation_amount, n_players)
-            self.game_state.last_move = (player.rotate_by(rotation_amount, n_players), pos, choice)
+            result.game_state.last_move = (player.rotate_by(rotation_amount, n_players), pos, choice)
 
-        old_player_bombs = copy.deepcopy(self.game_state.player_bombs)
-        for player, bombs in old_player_bombs.items():
-            self.game_state.player_bombs[player.rotate_by(rotation_amount, n_players)] = bombs
+        for player, bombs in self.game_state.player_bombs.items():
+            result.game_state.player_bombs[player.rotate_by(rotation_amount, n_players)] = bombs
 
-        old_player_overwrites = copy.deepcopy(self.game_state.player_overwrites)
-        for player, overwrites in old_player_overwrites.items():
-            self.game_state.player_overwrites[player.rotate_by(rotation_amount, n_players)] = overwrites
+        for player, overwrites in self.game_state.player_overwrites.items():
+            result.game_state.player_overwrites[player.rotate_by(rotation_amount, n_players)] = overwrites
 
-        old_players = copy.deepcopy(self.game_state.players)
-        self.game_state.players = set()
-        for player in old_players:
-            self.game_state.players.add(player.rotate_by(rotation_amount, n_players))
+        result.game_state.players = set()
+        for player in self.game_state.players:
+            result.game_state.players.add(player.rotate_by(rotation_amount, n_players))
 
         if self.game_state._cached_next_player:
-            self.game_state._cached_next_player = \
+            result.game_state._cached_next_player = \
                 self.game_state._cached_next_player.rotate_by(rotation_amount, n_players)
 
         # Rotate evaluation stats
-        old_expected_result = self.expected_result
-        self.expected_result = dict()
-        for player, result in old_expected_result.items():
-            self.expected_result[player.rotate_by(rotation_amount, n_players)] = result
+        result.expected_result = dict()
+        for player, expected in self.expected_result.items():
+            result.expected_result[player.rotate_by(rotation_amount, n_players)] = expected
 
-        old_probabilities = self.probabilities
-        self.probabilities = dict()
-        for (player, pos, choice), probability in old_probabilities.items():
-            self.probabilities[(player.rotate_by(rotation_amount, n_players), pos, choice)] = probability
+        result.probabilities = dict()
+        for (player, pos, choice), probability in self.probabilities.items():
+            result.probabilities[(player.rotate_by(rotation_amount, n_players), pos, choice)] = probability
+
+        return result
 
     def apply_transformation(self, number):
-        """Applies one dihedral group transformation given an number between 0 and 6."""
+        """Applies one dihedral group transformation given an number between 0 and 6.
+
+        Returns the converted evaluation and does not change the original data!"""
         if number == 0:
             # Identity
-            pass
+            return self
         elif number == 1:
-            self._execute_transformation('rot180')
+            return self._execute_transformation('rot180')
         elif number == 2:
-            self._execute_transformation('mirror')
+            return self._execute_transformation('mirror')
         elif number == 3:
-            self._execute_transformation('rot180')
-            self._execute_transformation('mirror')
+            tmp = self._execute_transformation('rot180')
+            return tmp._execute_transformation('mirror')
         elif number == 4:
-            self._execute_transformation('rot90')
+            return self._execute_transformation('rot90')
         elif number == 5:
-            self._execute_transformation('rot90')
-            self._execute_transformation('mirror')
+            tmp = self._execute_transformation('rot90')
+            return tmp._execute_transformation('mirror')
         elif number == 6:
-            self._execute_transformation('mirror')
-            self._execute_transformation('rot90')
+            tmp = self._execute_transformation('mirror')
+            return tmp._execute_transformation('rot90')
         else:
             raise AttributeError('Transformation number must be between 0 and 6, was {}'.format(number))
 
     def undo_transformations(self):
+        """Undos all previously applied transformations.
+
+        Returns the converted evaluation and does not change the original data!"""
+        result = self
+
         for transformation in self._applied_transformations:
-            self._undo_transformation(transformation)
-        self._applied_transformations = []
+            result = result._undo_transformation(transformation)
+
+        return result
 
     def _execute_transformation(self, transformation):
         if transformation == 'rot90':
-            self._rotate_by_90()
-            self._applied_transformations.append('rot90')
+            tmp = self._rotate_by_90()
         elif transformation == 'rot180':
-            self._rotate_by_180()
-            self._applied_transformations.append('rot180')
+            tmp = self._rotate_by_180()
         elif transformation == 'mirror':
-            self._mirror_vertical()
-            self._applied_transformations.append('mirror')
+            tmp = self._mirror_vertical()
         else:
             raise AttributeError('Transformation "{}" is not supported!'.format(transformation))
+
+        tmp._applied_transformations.append(transformation)
+        return tmp
 
     def _undo_transformation(self, transformation):
         if transformation == 'rot90':
-            self._rotate_by_270()
+            tmp = self._rotate_by_270()
         elif transformation == 'rot180':
-            self._rotate_by_180()
+            tmp = self._rotate_by_180()
         elif transformation == 'mirror':
-            self._mirror_vertical()
+            tmp = self._mirror_vertical()
         else:
             raise AttributeError('Transformation "{}" is not supported!'.format(transformation))
 
-    def _mirror_vertical(self):
-        # No deep copy needed
-        old_board = copy.copy(self.game_state.board._board)
-        for i in range(self.game_state.board.height):
-            self.game_state.board._board[self.game_state.board.height - i - 1] = old_board[i]
+        tmp._applied_transformations.remove(transformation)
+        return tmp
 
-        # Moves also need to be mirrored
-        old_probabilities = copy.deepcopy(self.probabilities)
-        self.probabilities = dict()
-        for (player, pos, choice), probability in old_probabilities.items():
-            x, y = pos
-            new_y = self.game_state.board.height - y - 1
-            self.probabilities[(player, (x, new_y), choice)] = probability
+    def _swap_positions(self, swap_function):
+        """Swaps all positions in the game_state object according to the mapping of the swap function.
+
+        Returns the converted evaluation and does not change the original data!"""
+        height = self.game_state.board.height
+        width = self.game_state.board.width
+
+        # Currently only supported for quadratic boards
+        assert (height == width)
+
+        result = copy.deepcopy(self)
+
+        for y in range(height):
+            for x in range(width):
+                # Board
+                new_pos = swap_function(x, y, width, height)
+                result.game_state.board[new_pos] = self.game_state.board[(x, y)]
+
+        # Move Probabilities
+        result.probabilities = dict()
+        for (player, (x, y), choice), probability in self.probabilities.items():
+            result.probabilities[(player, swap_function(x, y, width, height), choice)] = probability
+
+        # Cached possible moves
+        if self.possible_moves:
+            result.possible_moves = []
+            for (player, (x, y), choice) in self.possible_moves:
+                result.possible_moves.append((player, swap_function(x, y, width, height), choice))
+
+        # Last Move
+        if self.game_state.last_move:
+            last_player, (last_x, last_y), last_choice = self.game_state.last_move
+            result.game_state.last_move = last_player, swap_function(last_x, last_y, width, height), last_choice
+
+        return result
+
+    def _mirror_vertical(self):
+        def swap_function(x, y, width, height):
+            new_x = x
+            new_y = height - y - 1
+            return new_x, new_y
+
+        return self._swap_positions(swap_function)
 
     def _rotate_by_180(self):
-        height = self.game_state.board.height
-        width = self.game_state.board.width
-
-        old_board = copy.deepcopy(self.game_state.board)
-        for y in range(height):
-            for x in range(width):
-                old_x = width - x - 1
-                old_y = height - y - 1
-                self.game_state.board[(x, y)] = old_board[(old_x, old_y)]
-
-        # Moves also need to be mirrored
-        old_probabilities = copy.deepcopy(self.probabilities)
-        self.probabilities = dict()
-        for (player, pos, choice), probability in old_probabilities.items():
-            x, y = pos
+        def swap_function(x, y, width, height):
             new_x = width - x - 1
             new_y = height - y - 1
-            self.probabilities[(player, (new_x, new_y), choice)] = probability
+            return new_x, new_y
+
+        return self._swap_positions(swap_function)
 
     def _rotate_by_270(self):
-        height = self.game_state.board.height
-        width = self.game_state.board.width
-
-        # Currently only supported for quadratic boards
-        assert(height == width)
-
-        old_board = copy.deepcopy(self.game_state.board)
-        for y in range(height):
-            for x in range(width):
-                new_x = height - y - 1
-                new_y = x
-                self.game_state.board[(x, y)] = old_board[(new_x, new_y)]
-
-        # Moves also need to be mirrored
-        old_probabilities = copy.deepcopy(self.probabilities)
-        self.probabilities = dict()
-        for (player, pos, choice), probability in old_probabilities.items():
-            x, y = pos
+        def swap_function(x, y, width, height):
             new_x = y
             new_y = height - x - 1
-            self.probabilities[(player, (new_x, new_y), choice)] = probability
+            return new_x, new_y
+
+        return self._swap_positions(swap_function)
 
     def _rotate_by_90(self):
-        height = self.game_state.board.height
-        width = self.game_state.board.width
-
-        # Currently only supported for quadratic boards
-        assert(height == width)
-
-        old_board = copy.deepcopy(self.game_state.board)
-        for y in range(height):
-            for x in range(width):
-                new_x = y
-                new_y = height - x - 1
-                self.game_state.board[(x, y)] = old_board[(new_x, new_y)]
-
-        # Moves also need to be mirrored
-        old_probabilities = copy.deepcopy(self.probabilities)
-        self.probabilities = dict()
-        for (player, pos, choice), probability in old_probabilities.items():
-            x, y = pos
+        def swap_function(x, y, width, height):
             new_x = height - y - 1
             new_y = x
-            self.probabilities[(player, (new_x, new_y), choice)] = probability
+            return new_x, new_y
+
+        return self._swap_positions(swap_function)
 
 
 class NeuralNetwork:
@@ -390,16 +395,16 @@ class NeuralNetworkExecutorClient:
         # Create the evaluation to send to the NN.
         # We will apply rotations on random instances.
         evaluation = Evaluation(copy.deepcopy(game_state))
-        evaluation.convert_to_normal()
-        evaluation.apply_transformation(random.randint(0, 6))
+        evaluation = evaluation.convert_to_normal()
+        evaluation = evaluation.apply_transformation(random.randint(0, 6))
 
         # Execute it using the neural network process.
         self.socket.send_pyobj(evaluation)
         evaluation = self.socket.recv_pyobj()
 
         # Undo our random rotation on the instance.
-        evaluation.undo_transformations()
-        evaluation.convert_from_normal()
+        evaluation = evaluation.undo_transformations()
+        evaluation = evaluation.convert_from_normal()
 
         return evaluation
 
@@ -573,18 +578,23 @@ class SelfplayExecutor:
 
         actual_results = self.current_game_state.calculate_scores()
 
-        # Add every possible rotation
+
         old_evaluations = self.evaluations
         self.evaluations = []
         for evaluation in old_evaluations:
-            for i in range(7):
-                transformed_evaluation = copy.deepcopy(evaluation)
-                transformed_evaluation.apply_transformation(i)
-                self.evaluations.append(transformed_evaluation)
-
-        for evaluation in self.evaluations:
+            # Add results and pre-calculate the next possible moves
+            next_game_states = evaluation.game_state.get_next_possible_moves()
+            possible_moves = [next_game_state.last_move for next_game_state in next_game_states]
+            evaluation.possible_moves = possible_moves
             evaluation.expected_result = actual_results
-            self._prepare_eval_for_saving(evaluation)
+
+            # Convert to normal...
+            evaluation = evaluation.convert_to_normal()
+
+            # Add every possible rotation
+            for i in range(7):
+                transformed_evaluation = evaluation.apply_transformation(i)
+                self.evaluations.append(transformed_evaluation)
 
         return self.evaluations
 
@@ -594,13 +604,6 @@ class SelfplayExecutor:
         evaluation.probabilities = self.current_executor.move_probabilities(0.5)
 
         self.evaluations.append(evaluation)
-
-    def _prepare_eval_for_saving(self, evaluation):
-        """Apply all needed transformations and add metadata needed before saving this training instance."""
-        evaluation.convert_to_normal()
-        next_game_states = evaluation.game_state.get_next_possible_moves()
-        possible_moves = [next_game_state.last_move for next_game_state in next_game_states]
-        evaluation.possible_moves = possible_moves
 
 
 class TrainingExecutor(threading.Thread):

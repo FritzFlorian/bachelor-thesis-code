@@ -375,17 +375,18 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
 
     @staticmethod
     def _evaluations_to_input(evaluations):
+        normal_evaluations = []
         for evaluation in evaluations:
-            evaluation.convert_to_normal()
+            normal_evaluations.append(evaluation.convert_to_normal())
 
         inputs = [SimpleNeuralNetwork._game_sate_to_input(evaluation.game_state, evaluation.possible_moves)
-                  for evaluation in evaluations]
+                  for evaluation in normal_evaluations]
         inputs = np.array(inputs)
 
-        value_outputs = np.array([[evaluation.expected_result[Field.PLAYER_ONE]] for evaluation in evaluations])
+        value_outputs = np.array([[evaluation.expected_result[Field.PLAYER_ONE]] for evaluation in normal_evaluations])
         prob_outputs = [SimpleNeuralNetwork._probabilities_to_output(evaluation.game_state.board,
                                                                      evaluation.probabilities)
-                        for evaluation in evaluations]
+                        for evaluation in normal_evaluations]
         prob_outputs = np.array(prob_outputs)
 
         return inputs, prob_outputs, value_outputs
