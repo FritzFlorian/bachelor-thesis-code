@@ -21,7 +21,7 @@ FLOAT = tf.float32
 L2_LOSS_WEIGHT = 0.005
 
 # Number of games played to gather training data per epoch (per NN configuration)
-GAMES_PER_EPOCH = 24
+GAMES_PER_EPOCH = 16
 SIMULATIONS_PER_GAME_TURN = 80
 
 TRAINING_BATCHES_PER_EPOCH = 1_500
@@ -34,9 +34,10 @@ DATA_FOLDER = 'data'
 BEST_CHECKPOINT_FOLDER = 'best-checkpoint'
 
 N_EVALUATION_GAMES = 16
-NEEDED_AVG_SCORE = 0.0
+NEEDED_AVG_SCORE = 0.05
 
-N_AI_EVALUATION_GAMES = 8
+N_AI_EVALUATION_GAMES = 16
+
 
 
 def main():
@@ -62,8 +63,7 @@ def main():
                 neural_network.save_weights(sess, best_model_file)
 
     # Current run...
-    # run_dir = './run_{}'.format(round(time.time() * 1000))
-    run_dir = './run_1510928431840'
+    run_dir = './run_{}'.format(round(time.time() * 1000))
 
     # Keep Track of the AI evaluations.
     # We hope to see some sort of improvement over time here.
@@ -85,11 +85,6 @@ def main():
         training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
         training_executor.start()
         def game_finished(evaluations):
-            for evaluation in evaluations:
-                # We need all training data in normal form
-                evaluation.convert_to_normal()
-                # Try to prevent overfitting a little
-                evaluation.apply_transformation(random.randint(0, 6))
             print('Add {} evaluations to training data.'.format(len(evaluations)))
             training_executor.add_examples(evaluations)
 
@@ -177,8 +172,9 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             # Add a fully connected hidden layer.
             prob_hidden = self._construct_dense_layer(flattered_prob_conv, BOARD_WIDTH * BOARD_HEIGHT, 'prob_hidden',
                                                       activation=tf.nn.leaky_relu)
+            prob_hidden_dropout = tf.layers.dropout(prob_hidden, training=self.training)
             # Add a fully connected output layer.
-            self.out_prob_logits = self._construct_dense_layer(prob_hidden, BOARD_WIDTH * BOARD_HEIGHT, 'prob_logits')
+            self.out_prob_logits = self._construct_dense_layer(prob_hidden_dropout, BOARD_WIDTH * BOARD_HEIGHT, 'prob_logits')
 
             # The final output is a probability distribution and we use the softmax loss.
             # So we need to apply softmax to the output.
@@ -192,8 +188,9 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             # Add a fully connected hidden layer.
             value_hidden = self._construct_dense_layer(flattered_value_conv, BOARD_WIDTH * BOARD_HEIGHT, 'value_hidden',
                                                        activation=tf.nn.leaky_relu)
+            value_hidden_dropout = tf.layers.dropout(value_hidden, training=self.training)
             # Add a fully connected output layer.
-            value_scalar = self._construct_dense_layer(value_hidden, 1, 'value_output')
+            value_scalar = self._construct_dense_layer(value_hidden_dropout, 1, 'value_output')
 
             # Than will give us a value between -1 and 1 as we need it
             self.out_value = tf.nn.tanh(value_scalar)
