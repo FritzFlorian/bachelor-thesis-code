@@ -178,7 +178,7 @@ class BasicClient:
         self.logger.info("Board received, waiting for player number...")
 
         self.player = self.read_message().player
-        self.logger.info("Client was assigned player {}.".format(self.player.value))
+        self.logger.info("Client was assigned player {}.".format(self.player))
 
     def stop(self):
         self.client.close()
@@ -245,7 +245,7 @@ def read_string(conn, length):
 
 def choice_to_integer(choice):
     if choice in PLAYERS:
-        return ord(choice.value) - ord(Field.PLAYER_ONE.value) + 1
+        return Field.to_player_int(choice)
     if choice == 'bomb':
         return 20
     if choice == 'overwrite':
@@ -256,7 +256,7 @@ def choice_to_integer(choice):
 
 def integer_to_choice(integer):
     if 1 <= integer <= 8:
-        return Field(chr(integer - 1 + ord(Field.PLAYER_ONE.value)))
+        return Field.int_to_player(integer)
     if integer == 20:
         return 'bomb'
     if integer == 21:
@@ -349,13 +349,13 @@ class PlayerNumberMessage(Message):
 
     def read_from_conn(self, conn):
         self.read_message_length(conn)
-        self.player = Field(chr(ord(Field.PLAYER_ONE.value) + read_8_bit_int(conn) - 1))
+        self.player = Field.int_to_player(read_8_bit_int(conn))
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 3)
         write_32_bit_int(conn, 1)
 
-        write_8_bit_int(conn, ord(self.player.value) - ord(Field.PLAYER_ONE.value) + 1)
+        write_8_bit_int(conn, Field.to_player_int(self.player))
 
 
 class MoveRequestMessage(Message):
@@ -412,7 +412,7 @@ class MoveNotificationMessage(Message):
 
         self.pos = read_16_bit_int(conn), read_16_bit_int(conn)
         self.choice = integer_to_choice(read_8_bit_int(conn))
-        self.player = Field(chr(read_8_bit_int(conn) + ord(Field.PLAYER_ONE.value) - 1))
+        self.player = Field.int_to_player(read_8_bit_int(conn))
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 6)
@@ -422,7 +422,7 @@ class MoveNotificationMessage(Message):
         write_16_bit_int(conn, x)
         write_16_bit_int(conn, y)
         write_8_bit_int(conn, choice_to_integer(self.choice))
-        write_8_bit_int(conn, ord(self.player.value) - ord(Field.PLAYER_ONE.value) + 1)
+        write_8_bit_int(conn, Field.to_player_int(self.player))
 
 
 class DisqualificationMessage(Message):
@@ -433,13 +433,13 @@ class DisqualificationMessage(Message):
     def read_from_conn(self, conn):
         self.read_message_length(conn)
 
-        self.player = Field(chr(read_8_bit_int(conn) + ord(Field.PLAYER_ONE.value) - 1))
+        self.player = Field.int_to_player(read_8_bit_int(conn))
 
     def write_to_conn(self, conn):
         write_8_bit_int(conn, 7)
         write_32_bit_int(conn, 1)
 
-        write_8_bit_int(conn, ord(self.player.value) - ord(Field.PLAYER_ONE.value) + 1)
+        write_8_bit_int(conn, Field.to_player_int(self.player))
 
 
 class EndPhaseOneMessage(Message):

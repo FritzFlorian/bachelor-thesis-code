@@ -345,7 +345,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         result = np.empty([board.height, board.width], dtype=int)
         for y in range(board.height):
             for x in range(board.width):
-                result[y][x] = Field.to_int8(board[(x, y)])
+                result[y][x] = board[(x, y)]
 
         # OneHotEncode the inputs
         one_hot_encoder = sklearn.preprocessing.OneHotEncoder(N_RAW_VALUES + 1, sparse=False)

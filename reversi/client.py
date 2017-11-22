@@ -38,7 +38,7 @@ class Client(threading.Thread):
                 move_message = network_core.MoveResponseMessage(pos, choice)
                 self.client.send_message(move_message)
             elif isinstance(message, network_core.DisqualificationMessage):
-                self.logger.info("Player {} Disqualified!".format(message.player.value))
+                self.logger.info("Player {} Disqualified!".format(message.player))
                 self.game.disqualify_player(message.player)
                 if message.player == self.client.player:
                     self.logger.info("Client was disqualified, shutting down...")

@@ -1,5 +1,5 @@
 """ReversiXT Core Mechanics - Parse Board, Execute Move, Print Board"""
-from enum import Enum
+from enum import Enum, IntEnum
 import io
 import reversi.copy as copy
 import itertools
@@ -36,8 +36,8 @@ class GameState:
         self.player_bombs = dict()
         self.player_overwrites = dict()
         self.players = set()
-        for i in range(self.board.n_players):
-            player = Field(chr(i + ord(Field.PLAYER_ONE.value)))
+        for i in range(1, self.board.n_players + 1):
+            player = i
             self.player_bombs[player] = board.n_bombs
             self.player_overwrites[player] = board.n_overwrite
             self.players.add(player)
@@ -204,10 +204,10 @@ class GameState:
             (player, _, _) = self.last_move
 
         # Find the next, not disqualified player
-        raw_player = ord(player.value) - ord(Field.PLAYER_ONE.value)
+        raw_player = player - Field.PLAYER_ONE
         for i in range(1, self.board.n_players + 1):
             new_raw_player = (raw_player + i) % self.board.n_players
-            new_player = Field(chr(new_raw_player + ord(Field.PLAYER_ONE.value)))
+            new_player = new_raw_player + Field.PLAYER_ONE
             if new_player in self.players:
                 return new_player
 
@@ -326,7 +326,7 @@ class Board:
             input_row = buf.readline().split()
             output_row = []
             for x in range(self.width):
-                output_row.append(Field(input_row[x]))
+                output_row.append(FIELD_LOOKUP.index(input_row[x]) - 1)
             self._board.append(output_row)
 
     def read_transitions(self, buf):
@@ -406,9 +406,9 @@ class Board:
         for x in range(self.width):
             for y in range(self.height):
                 if self.is_player_at((x, y)):
-                    raw_value = ord(self[(x, y)].value) - ord(Field.PLAYER_ONE.value)
+                    raw_value = self[(x, y)] - Field.PLAYER_ONE
                     raw_value = (raw_value + 1) % self.n_players
-                    self[(x, y)] = Field(chr(raw_value + ord(Field.PLAYER_ONE.value)))
+                    self[(x, y)] = raw_value + Field.PLAYER_ONE
 
     def swap_stones(self, first, second):
         for x in range(self.width):
@@ -425,7 +425,7 @@ class Board:
         # Stop at walls an if the strength runs out
         if strength < 0:
             return
-        if pos not in old_board or old_board[pos] == Field.HOLE or not old_board[pos]:
+        if pos not in old_board or old_board[pos] == Field.HOLE:
             return
 
         self[pos] = Field.HOLE
@@ -478,7 +478,7 @@ class Board:
         for y in range(self.height):
             line_items = []
             for x in range(self.width):
-                line_items.append(self[(x, y)].value)
+                line_items.append(Field.to_string(self[(x, y)]))
             str_list.append(" ".join(line_items))
 
         return '\n'.join(str_list)
@@ -519,70 +519,41 @@ class Board:
         return True
 
 
-class Field(Enum):
-    EMPTY = '0'
+class Field:
+    HOLE = -1
+    EMPTY = 0
 
-    PLAYER_ONE = '1'
-    PLAYER_TWO = '2'
-    PLAYER_THREE = '3'
-    PLAYER_FOUR = '4'
-    PLAYER_FIVE = '5'
-    PLAYER_SIX = '6'
-    PLAYER_SEVEN = '7'
-    PLAYER_EIGHT = '8'
+    PLAYER_ONE = 1
+    PLAYER_TWO = 2
+    PLAYER_THREE = 3
+    PLAYER_FOUR = 4
+    PLAYER_FIVE = 5
+    PLAYER_SIX = 6
+    PLAYER_SEVEN = 7
+    PLAYER_EIGHT = 8
 
-    INVERSION = 'i'
-    CHOICE = 'c'
-    EXPANSION = 'x'
-    BONUS = 'b'
-
-    HOLE = '-'
-
-    # Transformations used for the internal np.array representation.
-    # This makes transformations (rotate/mirror) and conversion to NN input way easier and faster.
-    def to_int8(self):
-        if self == Field.INVERSION:
-            return 9
-        if self == Field.CHOICE:
-            return 10
-        if self == Field.EXPANSION:
-            return 11
-        if self == Field.BONUS:
-            return 12
-        if self == Field.HOLE:
-            return 13
-
-        return ord(self.value) - ord(Field.EMPTY.value)
-
-    @staticmethod
-    def from_int8(int8):
-        if int8 == 9:
-            return Field('i')
-        if int8 == 10:
-            return Field('c')
-        if int8 == 11:
-            return Field('x')
-        if int8 == 12:
-            return Field('b')
-        if int8 == 13:
-            return Field('-')
-
-        return Field(chr(int8 + ord(Field.EMPTY.value)))
+    INVERSION = 9
+    CHOICE = 10
+    EXPANSION = 11
+    BONUS = 12
 
     # Transformations useful when rotating the board
-    def rotate_by(self, amount, n_players):
-        new_player_number = ((self.to_player_int() - 1 + amount) % n_players) + 1
+    @staticmethod
+    def rotate_by(field, amount, n_players):
+        new_player_number = ((Field.to_player_int(field) - 1 + amount) % n_players) + 1
         return Field.int_to_player(new_player_number)
 
-    def to_player_int(self):
-        return ord(self.value) - ord(Field.PLAYER_ONE.value) + 1
+    @staticmethod
+    def to_player_int(field):
+        return field - Field.PLAYER_ONE + 1
 
     @staticmethod
     def int_to_player(number):
-        return Field(chr(number + ord(Field.PLAYER_ONE.value) - 1))
+        return number + Field.PLAYER_ONE - 1
 
-    def __lt__(self, other):
-        return ord(self.value) < ord(other.value)
+    @staticmethod
+    def to_string(field):
+        return FIELD_LOOKUP[field + 1]
 
 
 PLAYERS = {Field.PLAYER_ONE, Field.PLAYER_TWO, Field.PLAYER_THREE, Field.PLAYER_FOUR,
@@ -615,3 +586,5 @@ MOVEMENT = {
     Direction.LEFT: (-1, 0),
     Direction.TOP_LEFT: (-1, -1)
 }
+
+FIELD_LOOKUP = ('-', '0', '1', '2', '3', '4', '5', '6', '7', '8', 'i', 'c', 'x', 'b')

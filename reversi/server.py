@@ -36,7 +36,7 @@ class Server(threading.Thread):
                 self.server.set_player_for_group(g, p)
         else:
             for i in range(self.game.board.n_players):
-                self.server.set_player_for_group(groups[i], Field(chr(ord(Field.PLAYER_ONE.value) + i)))
+                self.server.set_player_for_group(groups[i], Field.PLAYER_ONE+ i)
 
         self.logger.info("Starting Game")
         self._game_loop()
@@ -116,7 +116,7 @@ class Server(threading.Thread):
 
     def _disqualify_player(self, player, err):
         self.history.add_disqualification(player)
-        self.logger.info("Player {} Disqualified! {}".format(player.value, err))
+        self.logger.info("Player {} Disqualified! {}".format(player, err))
         self.game.disqualify_player(player)
         self.server.broadcast_message(network_core.DisqualificationMessage(player))
 

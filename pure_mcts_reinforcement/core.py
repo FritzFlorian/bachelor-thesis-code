@@ -56,7 +56,7 @@ class Evaluation:
         if current_active_player == Field.PLAYER_ONE:
             return self
 
-        rotation_amount = self.game_state.board.n_players - current_active_player.to_player_int() + 1
+        rotation_amount = self.game_state.board.n_players - Field.to_player_int(current_active_player) + 1
         return self._rotate_players(rotation_amount)
 
     def convert_from_normal(self):
@@ -70,7 +70,7 @@ class Evaluation:
         if current_active_player == self.active_player:
             return self
 
-        rotation_amount = self.active_player.to_player_int() - 1
+        rotation_amount = Field.to_player_int(self.active_player) - 1
         return self._rotate_players(rotation_amount)
 
     def _rotate_players(self, rotation_amount):
@@ -88,31 +88,31 @@ class Evaluation:
         if self.game_state.last_move:
             (player, pos, choice) = self.game_state.last_move
             if isinstance(choice, Field):
-                choice = choice.rotate_by(rotation_amount, n_players)
-            result.game_state.last_move = (player.rotate_by(rotation_amount, n_players), pos, choice)
+                choice = Field.rotate_by(choice, rotation_amount, n_players)
+            result.game_state.last_move = (Field.rotate_by(player, rotation_amount, n_players), pos, choice)
 
         for player, bombs in self.game_state.player_bombs.items():
-            result.game_state.player_bombs[player.rotate_by(rotation_amount, n_players)] = bombs
+            result.game_state.player_bombs[Field.rotate_by(player, rotation_amount, n_players)] = bombs
 
         for player, overwrites in self.game_state.player_overwrites.items():
-            result.game_state.player_overwrites[player.rotate_by(rotation_amount, n_players)] = overwrites
+            result.game_state.player_overwrites[Field.rotate_by(player, rotation_amount, n_players)] = overwrites
 
         result.game_state.players = set()
         for player in self.game_state.players:
-            result.game_state.players.add(player.rotate_by(rotation_amount, n_players))
+            result.game_state.players.add(Field.rotate_by(player, rotation_amount, n_players))
 
         if self.game_state._cached_next_player:
             result.game_state._cached_next_player = \
-                self.game_state._cached_next_player.rotate_by(rotation_amount, n_players)
+                Field.rotate_by(self.game_state._cached_next_player, rotation_amount, n_players)
 
         # Rotate evaluation stats
         result.expected_result = dict()
         for player, expected in self.expected_result.items():
-            result.expected_result[player.rotate_by(rotation_amount, n_players)] = expected
+            result.expected_result[Field.rotate_by(player, rotation_amount, n_players)] = expected
 
         result.probabilities = dict()
         for (player, pos, choice), probability in self.probabilities.items():
-            result.probabilities[(player.rotate_by(rotation_amount, n_players), pos, choice)] = probability
+            result.probabilities[(Field.rotate_by(player, rotation_amount, n_players), pos, choice)] = probability
 
         return result
 

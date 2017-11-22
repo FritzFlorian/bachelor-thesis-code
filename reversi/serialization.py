@@ -34,7 +34,7 @@ class GameHistory:
         self.events.append({
             'type': 'move',
             'move': {
-                'player': player.value,
+                'player': player,
                 'x': x,
                 'y': y,
                 'c': choice
@@ -44,18 +44,18 @@ class GameHistory:
     def add_disqualification(self, player):
         self.events.append({
             'type': 'disqualification',
-            'player': player.value
+            'player': player
         })
 
     def __getitem__(self, arg):
         item = self.events[arg]
 
         if item['type'] == 'disqualification':
-            return Disqualification(Field(item['player']))
+            return Disqualification(item['player'])
         if item['type'] == 'move':
             pos = (item['move']['x'], item['move']['y'])
             choice = item['move']['c']
-            player = Field(item['move']['player'])
+            player = item['move']['player']
 
             return Move(player, pos, choice)
 
