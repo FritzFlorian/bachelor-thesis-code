@@ -63,7 +63,8 @@ def main():
                 neural_network.save_weights(sess, best_model_file)
 
     # Current run...
-    run_dir = './run_{}'.format(round(time.time() * 1000))
+    # run_dir = './run_{}'.format(round(time.time() * 1000))
+    run_dir = './run_1511350659561'
 
     # Keep Track of the AI evaluations.
     # We hope to see some sort of improvement over time here.
@@ -81,7 +82,8 @@ def main():
         create_directory(current_ckpt_dir)
 
         # Make sure to add training data to our training executor.
-        reuse_old_training_data = os.path.exists(current_data_dir)
+        reuse_old_selfplay_data = os.path.exists(current_data_dir)
+        reuse_old_training_data = os.path.exists(current_ckpt_dir)
         training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
         training_executor.start()
         def game_finished(evaluations):
@@ -90,7 +92,7 @@ def main():
 
         # Run selfplay to get training data
         print("Start selfplay for epoch {}...".format(epoch))
-        if reuse_old_training_data:
+        if reuse_old_selfplay_data:
             print('Skipping selfplay and use existing data...')
             training_executor._n_test = count_directory_items(os.path.join(current_data_dir, 'test'))
             training_executor._n_training = count_directory_items(os.path.join(current_data_dir, 'training'))
@@ -102,15 +104,18 @@ def main():
             parallel_selfplay.run()
 
         # Train a new neural network
-        train_file_writer = tf.summary.FileWriter('./tb/graph-{}-train'.format(epoch), tf.get_default_graph())
         print("Start training for epoch {}...".format(epoch))
-        for batch in range(1, TRAINING_BATCHES_PER_EPOCH + 1):
-            training_executor.run_training_batch(BATCH_SIZE)
-            if batch % 50 == 0:
-                print('{} batches executed.'.format(batch))
-                training_executor.log_training_loss(train_file_writer, batch, batch_size=BATCH_SIZE * 2)
-        training_executor.save(current_ckpt_file)
-        train_file_writer.close()
+        if reuse_old_training_data:
+            print("Skip training and use existing data...")
+        else:
+            train_file_writer = tf.summary.FileWriter('./tb/graph-{}-train'.format(epoch), training_executor.graph)
+            for batch in range(1, TRAINING_BATCHES_PER_EPOCH + 1):
+                training_executor.run_training_batch(BATCH_SIZE)
+                if batch % 50 == 0:
+                    print('{} batches executed.'.format(batch))
+                    training_executor.log_training_loss(train_file_writer, batch, batch_size=BATCH_SIZE * 2)
+            training_executor.save(current_ckpt_file)
+            train_file_writer.close()
 
         # See if we choose the new one as best network
         print("Start Evaluation versus last epoch...")

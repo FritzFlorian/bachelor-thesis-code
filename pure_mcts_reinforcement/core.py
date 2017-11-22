@@ -568,12 +568,11 @@ class SelfplayExecutor:
             # Execute the move
             index = np.random.choice(len(moves), p=probabilities)
             (player, pos, choice) = move = moves[index]
-            new_game_state = self.current_executor.start_game_state.execute_move(player, pos, choice)
-            self.current_game_state = copy.deepcopy(new_game_state)
+            self.current_game_state = self.current_game_state.execute_move(player, pos, choice)
 
             # Update our executor. We keep the part of the search tree that was selected.
             selected_child = self.current_executor.root_node.children[move]
-            self.current_executor = MCTSExecutor(new_game_state, self.nn_executor, selected_child)
+            self.current_executor = MCTSExecutor(self.current_game_state, self.nn_executor, selected_child)
 
         actual_results = self.current_game_state.calculate_scores()
 
@@ -628,6 +627,8 @@ class TrainingExecutor(threading.Thread):
         self.lock = threading.Lock()
         self._n_training = 0
         self._n_test = 0
+        self._cached_training = dict()
+        self._cached_test = dict()
 
         # TODO: add more sophisticated synchronization to allow batching. It's ok for a first test.
         self.request_queue = queue.Queue(1)
@@ -665,59 +666,55 @@ class TrainingExecutor(threading.Thread):
     def stop(self):
         self.stopped = True
 
-    def _get_n_training(self):
-        with self.lock:
-            result = self._n_training
-        return result
-
-    def _add_to_n_training(self, amount):
-        with self.lock:
-            result = self._n_training = self._n_training + amount
-        return result
-
-    def _get_n_test(self):
-        with self.lock:
-            result = self._n_test
-        return result
-
-    def _add_to_n_test(self, amount):
-        with self.lock:
-            result = self._n_test = self._n_test + amount
-        return result
-
     def add_examples(self, evaluations, test_game=False):
-        if test_game:
-            directory = self.test_dir
-            number = self._add_to_n_test(1)
-        else:
-            directory = self.training_dir
-            number = self._add_to_n_training(1)
+        with self.lock:
+            if test_game:
+                directory = self.test_dir
+                self._n_test = self._n_test + 1
+                number = self._n_test
+                cache = self._cached_test
+            else:
+                directory = self.training_dir
+                self._n_training = self._n_training + 1
+                number = self._n_training
+                cache = self._cached_training
 
-        with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'wb') as file:
-            pickle.dump(evaluations, file)
+            with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'wb') as file:
+                pickle.dump(evaluations, file)
+
+            # TODO: Better manage the cache
+            cache[number] = evaluations
 
     def get_examples(self, n_examples, test_game=False):
-        if test_game:
-            directory = self.test_dir
-            max_number = self._get_n_test()
-        else:
-            directory = self.training_dir
-            max_number = self._get_n_training()
+        with self.lock:
+            if test_game:
+                directory = self.test_dir
+                max_number = self._n_test
+                cache = self._cached_test
+            else:
+                directory = self.training_dir
+                max_number = self._n_training
+                cache = self._cached_training
 
-        evaluations = []
-        while len(evaluations) < n_examples:
-            number = random.randint(1, max_number)
-            try:
-                with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'rb') as file:
-                    loaded_evaluations = pickle.load(file)
-                    random.shuffle(loaded_evaluations)
+            evaluations = []
+            while len(evaluations) < n_examples:
+                number = random.randint(1, max_number)
+                loaded_evaluations = cache.get(number, None)
 
-                    end_index = min(round(n_examples / 4 + 1), len(loaded_evaluations))
-                    evaluations = evaluations + loaded_evaluations[:end_index]
-            except IOError:
-                pass
+                if not loaded_evaluations:
+                    try:
+                        with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'rb') as file:
+                            loaded_evaluations = pickle.load(file)
+                    except IOError:
+                        break
 
-        return evaluations
+                cache[number] = loaded_evaluations
+
+                random.shuffle(loaded_evaluations)
+                end_index = min(round(n_examples / 4 + 1), len(loaded_evaluations))
+                evaluations = evaluations + loaded_evaluations[:end_index]
+
+            return evaluations
 
     def save(self, filename):
         event = threading.Event()
@@ -797,8 +794,9 @@ class ModelEvaluator:
         player_mapping = {tmp[0]: 0, tmp[1]: 1}
 
         while True:
+            game_state_copy = copy.deepcopy(current_game_state)
             current_player = current_game_state.calculate_next_player()
-            if not current_player:
+            if current_player is None:
                 break
 
             # Find the correct nn to execute this move
@@ -814,6 +812,14 @@ class ModelEvaluator:
             # Find the best move
             selected_move = None
             best_probability = -1.0
+            if not mcts_executor.root_node.children:
+                print('===========')
+                print(game_state_copy.board.__string__())
+                print(current_game_state.board.__string__())
+                print(current_game_state._cached_next_player)
+                print(current_game_state.calculate_next_player())
+                print(current_player)
+
             for move, probability in mcts_executor.move_probabilities(1).items():
                 if probability > best_probability:
                     best_probability = probability

@@ -108,6 +108,7 @@ class GameState:
         new_game_state.player_bombs = copy.deepcopy(self.player_bombs)
         new_game_state.player_overwrites = copy.deepcopy(self.player_overwrites)
 
+        new_game_state._cached_next_player = None
         new_game_state.board = new_board
         new_game_state.last_move = last_move
 
@@ -219,7 +220,7 @@ class GameState:
         This will actually find the next possible moves and derive the next player that can move.
         (This is needed in reversi as there can be situations where one player can not move and
         is skipped.)"""
-        if self._cached_next_player:
+        if self._cached_next_player is not None:
             return self._cached_next_player
 
         next_moves = self.get_next_possible_moves()
