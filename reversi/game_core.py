@@ -1,9 +1,8 @@
 """ReversiXT Core Mechanics - Parse Board, Execute Move, Print Board"""
 from enum import Enum
 import io
-import copy
+import reversi.copy as copy
 import itertools
-
 
 class DisqualifiedError(Exception):
     """All 'known' client errors and timeouts lead to an disqualified exception for that player."""
@@ -60,12 +59,15 @@ class GameState:
 
         return None
 
-    def get_possible_moves_on_position(self, pos, player=None, use_overwrite=False):
+    def get_possible_moves_on_position(self, pos, player=None, use_overwrite=False, reuse_list=None):
         if not player:
             player = self.next_player()
 
+        if not reuse_list:
+            reuse_list = []
+
         x, y = pos
-        possible_moves = []
+        possible_moves = reuse_list
         type, new_board = \
             self.board.execute_move((x, y), player, use_overwrite and self.player_overwrites[player] > 0)
 
@@ -74,27 +76,19 @@ class GameState:
         if type == 'error':
             pass
         elif type == 'normal':
-            new_game_state = copy.deepcopy(self)
-            new_game_state.board = new_board
-            new_game_state.last_move = (player, (x, y), None)
+            new_game_state = self._minimal_copy(new_board, (player, (x, y), None))
 
             possible_moves.append(new_game_state)
         elif type == 'overwrite':
-            new_game_state = copy.deepcopy(self)
-            new_game_state.board = new_board
-            new_game_state.last_move = (player, (x, y), None)
+            new_game_state = self._minimal_copy(new_board, (player, (x, y), None))
 
             new_game_state.player_overwrites[player] = new_game_state.player_overwrites[player] - 1
             possible_moves.append(new_game_state)
         elif type == 'bonus':
-            new_game_state = copy.deepcopy(self)
-            new_game_state.board = new_board
-            new_game_state_two = copy.deepcopy(new_game_state)
+            new_game_state = self._minimal_copy(new_board, (player, (x, y), 'bomb'))
+            new_game_state_two = self._minimal_copy(new_board, (player, (x, y), 'overwrite'))
 
-            new_game_state.last_move = (player, (x, y), 'bomb')
             new_game_state.player_bombs[player] = new_game_state.player_bombs[player] + 1
-
-            new_game_state_two.last_move = (player, (x, y), 'overwrite')
             new_game_state_two.player_overwrites[player] = new_game_state_two.player_overwrites[player] + 1
 
             possible_moves.append(new_game_state)
@@ -102,17 +96,22 @@ class GameState:
         elif type == 'choice':
             # Sorting is just to make this deterministic in tests
             for chosen_player in sorted(self.players):
-                new_game_state = copy.deepcopy(self)
-                new_game_state.board = copy.deepcopy(new_board)
+                new_game_state = self._minimal_copy(copy.deepcopy(new_board), (player, (x, y), chosen_player))
                 new_game_state.board.swap_stones(player, chosen_player)
-                new_game_state.last_move = (player, (x, y), chosen_player)
 
                 possible_moves.append(new_game_state)
 
-        for move in possible_moves:
-            move._cached_next_player = None
-
         return possible_moves
+
+    def _minimal_copy(self, new_board, last_move):
+        new_game_state = copy.copy(self)
+        new_game_state.player_bombs = copy.deepcopy(self.player_bombs)
+        new_game_state.player_overwrites = copy.deepcopy(self.player_overwrites)
+
+        new_game_state.board = new_board
+        new_game_state.last_move = last_move
+
+        return new_game_state
 
     def get_possible_bomb_move_on_position(self, pos, player=None):
         if not player:
@@ -140,9 +139,9 @@ class GameState:
         if not self.bomb_phase:
             for x in range(self.board.width):
                 for y in range(self.board.height):
-                    possible_moves.append(self.get_possible_moves_on_position((x, y), player=player, use_overwrite=use_overwrite))
+                    possible_moves = self.get_possible_moves_on_position((x, y), player=player, use_overwrite=use_overwrite, reuse_list=possible_moves)
 
-        return list(itertools.chain.from_iterable(possible_moves))
+        return possible_moves
 
     def get_possible_bomb_moves_for_player(self, player=None):
         """Gets the possible bomb moves for the next player only.
@@ -171,8 +170,6 @@ class GameState:
             for i in range(self.board.n_players):
                 possible_moves = self.get_possible_moves_for_player(player=next_player, use_overwrite=True)
                 if len(possible_moves) > 0:
-                    for move in possible_moves:
-                        move._cached_next_player = None
                     self._cached_next_player = possible_moves[0].last_move[0]
                     return possible_moves
 
@@ -362,12 +359,26 @@ class Board:
             return 'error', None
 
         captured_positions = [pos]
+        # Don't question this, it makes python way faster
+        _next_pos = self._next_pos
+
         for dir in Direction:
             cur_captured = []
-            cur_pos, cur_dir = self._next_pos(pos, dir)
-            while cur_pos in self and self._is_walkable(cur_pos, player) and cur_pos != pos:
-                cur_captured.append(cur_pos)
-                cur_pos, cur_dir = self._next_pos(cur_pos, cur_dir)
+            # Don't question this, it makes python way faster
+            append = cur_captured.append
+            cur_pos, cur_dir = _next_pos(pos, dir)
+
+            while True:
+                cur_x, cur_y = cur_pos
+                if cur_x < 0 or cur_x >= self.width or cur_y < 0 or cur_y >= self.height:
+                    break
+
+                cur_field = self._board[cur_y][cur_x]
+
+                if not ((cur_field in PLAYERS or cur_field == Field.EXPANSION) and cur_field != player and cur_pos != pos):
+                    break
+                append(cur_pos)
+                cur_pos, cur_dir = _next_pos(cur_pos, cur_dir)
 
             # Need to end a line at our player
             if cur_pos in self and self[cur_pos] == player and cur_pos != pos:
@@ -422,30 +433,13 @@ class Board:
             new_pos, _ = self._next_pos(pos, dir)
             self._execute_bomb_at_recursive(old_board, new_pos, strength - 1)
 
-    def _is_walkable(self, pos, player):
-        return (self.is_player_at(pos) or self[pos] == Field.EXPANSION) and self[pos] != player
-
     def _next_pos(self, pos, dir):
         if (pos, dir) in self.transitions:
             return self.transitions[(pos, dir)]
 
         x, y = pos
-        if dir == Direction.TOP:
-            return (x, y - 1), dir
-        if dir == Direction.TOP_RIGHT:
-            return (x + 1, y - 1), dir
-        if dir == Direction.RIGHT:
-            return (x + 1, y), dir
-        if dir == Direction.BOTTOM_RIGHT:
-            return (x + 1, y + 1), dir
-        if dir == Direction.BOTTOM:
-            return (x, y + 1), dir
-        if dir == Direction.BOTTOM_LEFT:
-            return (x - 1, y + 1), dir
-        if dir == Direction.LEFT:
-            return (x - 1, y), dir
-        if dir == Direction.TOP_LEFT:
-            return (x - 1, y - 1), dir
+        x_add, y_add = MOVEMENT[dir]
+        return (x + x_add, y + y_add), dir
 
     def is_player_at(self, pos):
         return pos in self and self[pos] in PLAYERS
@@ -609,3 +603,15 @@ class Direction(Enum):
     def mirror(direction):
         new_val = (direction.value + 4) % 8
         return Direction(new_val)
+
+
+MOVEMENT = {
+    Direction.TOP: (0, -1),
+    Direction.TOP_RIGHT: (1, -1),
+    Direction.RIGHT: (1, 0),
+    Direction.BOTTOM_RIGHT: (1, 1),
+    Direction.BOTTOM: (0, 1),
+    Direction.BOTTOM_LEFT: (-1, 1),
+    Direction.LEFT: (-1, 0),
+    Direction.TOP_LEFT: (-1, -1)
+}

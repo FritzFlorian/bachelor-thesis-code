@@ -98,7 +98,7 @@ def main():
             parallel_selfplay = distribution.ParallelSelfplayPool(initial_game_state, SimpleNeuralNetwork(),
                                                                   best_model_file, GAMES_PER_EPOCH, game_finished,
                                                                   simulations_per_turn=SIMULATIONS_PER_GAME_TURN,
-                                                                  pool_size=8, batch_size=6)
+                                                                  pool_size=8, batch_size=8)
             parallel_selfplay.run()
 
         # Train a new neural network

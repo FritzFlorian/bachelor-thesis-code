@@ -1,7 +1,7 @@
 from reversi.game_core import GameState, Field, Board
 import reversi.network_core as network
 import reversi.tournament as tournament
-import copy
+import reversi.copy as copy
 import math
 import numpy as np
 import tensorflow as tf
@@ -28,13 +28,12 @@ class Evaluation:
     NOTE: These transformations currently only work with quadratic fields!"""
     def __init__(self, game_state: GameState):
         self.game_state = game_state
-        self.possible_moves = None
 
         # Add dummy values for move probabilities and expected game results
-        next_moves = self.game_state.get_next_possible_moves()
+        self.possible_moves = [game_state.last_move for game_state in self.game_state.get_next_possible_moves()]
         self.probabilities = dict()
-        for move in next_moves:
-            self.probabilities[move.last_move] = 0.0
+        for move in self.possible_moves:
+            self.probabilities[move] = 0.0
         self.expected_result = dict()
         for player in game_state.start_players:
             self.expected_result[player] = 0.0
@@ -394,7 +393,7 @@ class NeuralNetworkExecutorClient:
         Might block for a while because other evaluations are being performed."""
         # Create the evaluation to send to the NN.
         # We will apply rotations on random instances.
-        evaluation = Evaluation(copy.deepcopy(game_state))
+        evaluation = Evaluation(game_state)
         evaluation = evaluation.convert_to_normal()
         evaluation = evaluation.apply_transformation(random.randint(0, 6))
 
@@ -578,14 +577,10 @@ class SelfplayExecutor:
 
         actual_results = self.current_game_state.calculate_scores()
 
-
         old_evaluations = self.evaluations
         self.evaluations = []
         for evaluation in old_evaluations:
-            # Add results and pre-calculate the next possible moves
-            next_game_states = evaluation.game_state.get_next_possible_moves()
-            possible_moves = [next_game_state.last_move for next_game_state in next_game_states]
-            evaluation.possible_moves = possible_moves
+            # Add results the next possible moves
             evaluation.expected_result = actual_results
 
             # Convert to normal...
