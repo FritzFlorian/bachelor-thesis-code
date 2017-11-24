@@ -469,7 +469,7 @@ class MCTSNode:
         sqrt_total_child_visits = math.sqrt(self.visits)
         # constant determining exploration
         # TODO: alter this value to find good fit
-        c_puct = 0.5
+        c_puct = 1.0
 
         best_move_value = -100.0
         best_move = None

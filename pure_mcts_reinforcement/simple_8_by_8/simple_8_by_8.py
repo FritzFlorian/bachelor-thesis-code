@@ -18,26 +18,25 @@ BOARD_WIDTH = 8
 N_RAW_VALUES = 3
 FLOAT = tf.float32
 
-L2_LOSS_WEIGHT = 0.005
+L2_LOSS_WEIGHT = 0.001
 
 # Number of games played to gather training data per epoch (per NN configuration)
-GAMES_PER_EPOCH = 16
-SIMULATIONS_PER_GAME_TURN = 80
+GAMES_PER_EPOCH = 24
+SIMULATIONS_PER_GAME_TURN = 128
 
 TRAINING_BATCHES_PER_EPOCH = 1_500
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 
-N_EPOCHS = 10
+N_EPOCHS = 50
 
 CHECKPOINT_FOLDER = 'checkpoints'
 DATA_FOLDER = 'data'
 BEST_CHECKPOINT_FOLDER = 'best-checkpoint'
 
 N_EVALUATION_GAMES = 16
-NEEDED_AVG_SCORE = 0.05
+NEEDED_AVG_SCORE = 0.1
 
 N_AI_EVALUATION_GAMES = 16
-
 
 
 def main():
@@ -49,7 +48,11 @@ def main():
         board = Board(file.read())
     initial_game_state = GameState(board)
 
-    best_model_dir = BEST_CHECKPOINT_FOLDER
+    # Current run...
+    # run_dir = './run_{}'.format(round(time.time() * 1000))
+    run_dir = './run_1511350659561'
+
+    best_model_dir = os.path.join(run_dir, BEST_CHECKPOINT_FOLDER)
     best_model_file = os.path.join(best_model_dir, 'checkpoint.ckpt')
 
     # Make sure we got a point to start training
@@ -62,28 +65,27 @@ def main():
                 neural_network.init_network()
                 neural_network.save_weights(sess, best_model_file)
 
-    # Current run...
-    # run_dir = './run_{}'.format(round(time.time() * 1000))
-    run_dir = './run_1511350659561'
-
     # Keep Track of the AI evaluations.
     # We hope to see some sort of improvement over time here.
     create_directory(os.path.join(run_dir, CHECKPOINT_FOLDER))
     stats_file = os.path.join(run_dir, 'stats.csv')
-    with open(stats_file, 'w') as file:
-        file.write('epoch,nn_score,ai_score,nn_stones,ai_stones\n')
+    if not os.path.isfile(stats_file):
+        with open(stats_file, 'w') as file:
+            file.write('epoch,nn_score,ai_score,nn_stones,ai_stones\n')
+
+    # Keep track of our progress
+    progress_file = os.path.join(run_dir, 'progress.json')
+    progress = distribution.TrainingProgress(progress_file)
 
     # Train for some epochs.
     # Each epoch equals one round of selfplay and training.
-    for epoch in range(N_EPOCHS):
+    print('Starting at epoch {}.'.format(progress.current_epoch()))
+    for epoch in range(progress.current_epoch(), N_EPOCHS, 1):
         current_data_dir = os.path.join(run_dir, DATA_FOLDER, 'epoch-{0:05d}'.format(epoch))
         current_ckpt_dir = os.path.join(run_dir, CHECKPOINT_FOLDER, 'ckpt-{0:05d}'.format(epoch))
         current_ckpt_file = os.path.join(current_ckpt_dir, 'checkpoint.ckpt')
-        create_directory(current_ckpt_dir)
 
         # Make sure to add training data to our training executor.
-        reuse_old_selfplay_data = os.path.exists(current_data_dir)
-        reuse_old_training_data = os.path.exists(current_ckpt_dir)
         training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
         training_executor.start()
         def game_finished(evaluations):
@@ -92,7 +94,7 @@ def main():
 
         # Run selfplay to get training data
         print("Start selfplay for epoch {}...".format(epoch))
-        if reuse_old_selfplay_data:
+        if progress.is_finished('selfplay'):
             print('Skipping selfplay and use existing data...')
             training_executor._n_test = count_directory_items(os.path.join(current_data_dir, 'test'))
             training_executor._n_training = count_directory_items(os.path.join(current_data_dir, 'training'))
@@ -102,10 +104,11 @@ def main():
                                                                   simulations_per_turn=SIMULATIONS_PER_GAME_TURN,
                                                                   pool_size=8, batch_size=8)
             parallel_selfplay.run()
+            progress.set_finished('selfplay')
 
         # Train a new neural network
         print("Start training for epoch {}...".format(epoch))
-        if reuse_old_training_data:
+        if progress.is_finished('training'):
             print("Skip training and use existing data...")
         else:
             train_file_writer = tf.summary.FileWriter('./tb/graph-{}-train'.format(epoch), training_executor.graph)
@@ -114,35 +117,55 @@ def main():
                 if batch % 50 == 0:
                     print('{} batches executed.'.format(batch))
                     training_executor.log_training_loss(train_file_writer, batch, batch_size=BATCH_SIZE * 2)
+            create_directory(current_ckpt_dir)
             training_executor.save(current_ckpt_file)
             train_file_writer.close()
+            progress.set_finished('training')
 
         # See if we choose the new one as best network
-        print("Start Evaluation versus last epoch...")
-        parallel_evaluation = \
-            distribution.ParallelSelfplayEvaluationPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
-                                                        SimpleNeuralNetwork(), best_model_file, current_ckpt_file,
-                                                        N_EVALUATION_GAMES,
-                                                        simulations_per_turn=SIMULATIONS_PER_GAME_TURN)
+        print("Start Evaluation of epoch {} versus last epoch...".format(epoch))
+        new_model_was_better = True
+        if progress.is_finished('self-evaluation'):
+            print('Skipping Evaluation, already done...')
+        else:
+            parallel_evaluation = \
+                distribution.ParallelSelfplayEvaluationPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
+                                                            SimpleNeuralNetwork(), best_model_file, current_ckpt_file,
+                                                            N_EVALUATION_GAMES,
+                                                            simulations_per_turn=SIMULATIONS_PER_GAME_TURN)
 
-        scores = parallel_evaluation.run()
-        print('Scores: Old {} vs. New {}'.format(scores[0], scores[1]))
+            scores = parallel_evaluation.run()
+            print('Scores: Old {} vs. New {}'.format(scores[0], scores[1]))
 
-        if scores[1] >= NEEDED_AVG_SCORE:
-            print('Using new model, as its average score is {} >= {}'.format(scores[1], NEEDED_AVG_SCORE))
-            training_executor.save(best_model_file)
-        training_executor.stop()
+            if scores[1] >= NEEDED_AVG_SCORE:
+                print('Using new model, as its average score is {} >= {}'.format(scores[1], NEEDED_AVG_SCORE))
+                training_executor.save(best_model_file)
+                new_model_was_better = True
+            else:
+                new_model_was_better = False
 
-        if scores[1] >= NEEDED_AVG_SCORE:
-            # Evaluate vs. ai trivial
-            print("Start AI Evaluation for epoch {}...".format(epoch))
-            parallel_tournament = distribution.ParallelAITrivialPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
-                                                                         best_model_file, N_AI_EVALUATION_GAMES, 1.0)
-            scores, stones = parallel_tournament.run()
-            print('Tournament Scores: AI {} vs. NN {}'.format(scores[1], scores[0]))
-            print('Tournament Stones: AI {} vs. NN {}'.format(stones[1], stones[0]))
-            with open(stats_file, 'a') as file:
-                file.write('{},{},{},{},{}\n'.format(epoch, scores[0], scores[1], stones[0], stones[1]))
+            training_executor.stop()
+            progress.set_finished('self-evaluation')
+
+        # Evaluate vs. ai trivial
+        print("Start AI Evaluation for epoch {}...".format(epoch))
+        if progress.is_finished('ai-evaluation'):
+            print("Skip AI Evaluation, already done...")
+        else:
+            if new_model_was_better:
+                parallel_tournament = distribution.ParallelAITrivialPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
+                                                                             best_model_file, N_AI_EVALUATION_GAMES, 1.0)
+                scores, stones = parallel_tournament.run()
+                print('Tournament Scores: AI {} vs. NN {}'.format(scores[1], scores[0]))
+                print('Tournament Stones: AI {} vs. NN {}'.format(stones[1], stones[0]))
+                with open(stats_file, 'a') as file:
+                    file.write('{},{},{},{},{}\n'.format(epoch, scores[0], scores[1], stones[0], stones[1]))
+            else:
+                print("Skip AI Evaluation, new model was not better then last one...")
+
+            progress.set_finished('ai-evaluation')
+
+        progress.add_epoch()
 
 
 def create_directory(directory):
@@ -166,12 +189,14 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             res2 = self._construct_residual_block(res1, 32, 'res2')
             res3 = self._construct_residual_block(res2, 32, 'res3')
             res4 = self._construct_residual_block(res3, 32, 'res4')
+            res5 = self._construct_residual_block(res4, 32, 'res5')
+            res6 = self._construct_residual_block(res5, 32, 'res6')
 
         with tf.name_scope('Probability-Head'):
             n_filters = 2
 
             # Reduce the big amount of convolutional filters to a reasonable size.
-            prob_conv = self._construct_conv_layer(res4, n_filters, 'prob_conv', kernel=[1, 1], stride=1)
+            prob_conv = self._construct_conv_layer(res6, n_filters, 'prob_conv', kernel=[1, 1], stride=1)
             # Flattern the output tensor to allow it as input to a fully connected layer.
             flattered_prob_conv = tf.reshape(prob_conv, [-1, n_filters * BOARD_WIDTH * BOARD_HEIGHT])
             # Add a fully connected hidden layer.
@@ -187,7 +212,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
 
         with tf.name_scope('Value-Head'):
             # Reduce the big amount of convolutional filters to a reasonable size.
-            value_conv = self._construct_conv_layer(res4, 1, 'value_conv', kernel=[1, 1], stride=1)
+            value_conv = self._construct_conv_layer(res6, 1, 'value_conv', kernel=[1, 1], stride=1)
             # Flattern the output tensor to allow it as input to a fully connected layer.
             flattered_value_conv = tf.reshape(value_conv, [-1, 1 * BOARD_WIDTH * BOARD_HEIGHT])
             # Add a fully connected hidden layer.

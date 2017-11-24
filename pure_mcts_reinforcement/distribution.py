@@ -1,5 +1,7 @@
 import pure_mcts_reinforcement.core as core
 import multiprocessing
+import os
+import json
 
 
 class ParallelSelfplayPool:
@@ -152,3 +154,49 @@ class ParallelAITrivialPool:
         nn_client.stop()
 
         return result
+
+
+class TrainingProgress:
+    """Keeps track of the current training progress and stores it in an json file.
+
+    Can be very useful to return to a previously started training session."""
+    def __init__(self, settings_file):
+        self.settings_file = settings_file
+        self.epochs = [{
+            'selfplay': False,
+            'training': False,
+            'self-evaluation': False,
+            'ai-evaluation': False
+        }]
+
+        if os.path.isfile(settings_file):
+            self.read_settings()
+        else:
+            self.write_settings()
+
+    def current_epoch(self):
+        return len(self.epochs) - 1
+
+    def add_epoch(self):
+        self.epochs.append({
+            'selfplay': False,
+            'training': False,
+            'self-evaluation': False,
+            'ai-evaluation': False
+        })
+        self.write_settings()
+
+    def is_finished(self, phase):
+        return self.epochs[-1][phase]
+
+    def set_finished(self, phase):
+        self.epochs[-1][phase] = True
+        self.write_settings()
+
+    def read_settings(self):
+        with open(self.settings_file, 'r') as file:
+            self.epochs = json.load(file)
+
+    def write_settings(self):
+        with open(self.settings_file, 'w') as file:
+            json.dump(self.epochs, file, indent=4, separators=(',', ': '))
