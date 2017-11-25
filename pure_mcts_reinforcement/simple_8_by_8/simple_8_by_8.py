@@ -18,13 +18,13 @@ BOARD_WIDTH = 8
 N_RAW_VALUES = 3
 FLOAT = tf.float32
 
-L2_LOSS_WEIGHT = 0.001
+L2_LOSS_WEIGHT = 0.002
 
 # Number of games played to gather training data per epoch (per NN configuration)
-GAMES_PER_EPOCH = 24
-SIMULATIONS_PER_GAME_TURN = 128
+GAMES_PER_EPOCH = 42
+SIMULATIONS_PER_GAME_TURN = 164
 
-TRAINING_BATCHES_PER_EPOCH = 1_500
+TRAINING_BATCHES_PER_EPOCH = 2_500
 BATCH_SIZE = 128
 
 N_EPOCHS = 50
@@ -33,10 +33,11 @@ CHECKPOINT_FOLDER = 'checkpoints'
 DATA_FOLDER = 'data'
 BEST_CHECKPOINT_FOLDER = 'best-checkpoint'
 
-N_EVALUATION_GAMES = 16
+N_EVALUATION_GAMES = 14
+SIMULATIONS_PER_GAME_TURN_EVALUATION = 64
 NEEDED_AVG_SCORE = 0.1
 
-N_AI_EVALUATION_GAMES = 16
+N_AI_EVALUATION_GAMES = 14
 
 
 def main():
@@ -50,7 +51,7 @@ def main():
 
     # Current run...
     # run_dir = './run_{}'.format(round(time.time() * 1000))
-    run_dir = './run_1511350659561'
+    run_dir = './run_multithreading'
 
     best_model_dir = os.path.join(run_dir, BEST_CHECKPOINT_FOLDER)
     best_model_file = os.path.join(best_model_dir, 'checkpoint.ckpt')
@@ -102,7 +103,7 @@ def main():
             parallel_selfplay = distribution.ParallelSelfplayPool(initial_game_state, SimpleNeuralNetwork(),
                                                                   best_model_file, GAMES_PER_EPOCH, game_finished,
                                                                   simulations_per_turn=SIMULATIONS_PER_GAME_TURN,
-                                                                  pool_size=8, batch_size=8)
+                                                                  pool_size=7, batch_size=32)
             parallel_selfplay.run()
             progress.set_finished('selfplay')
 
@@ -132,7 +133,7 @@ def main():
                 distribution.ParallelSelfplayEvaluationPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
                                                             SimpleNeuralNetwork(), best_model_file, current_ckpt_file,
                                                             N_EVALUATION_GAMES,
-                                                            simulations_per_turn=SIMULATIONS_PER_GAME_TURN)
+                                                            simulations_per_turn=SIMULATIONS_PER_GAME_TURN_EVALUATION)
 
             scores = parallel_evaluation.run()
             print('Scores: Old {} vs. New {}'.format(scores[0], scores[1]))
@@ -350,7 +351,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         self.init.run()
 
     def execute_batch(self, sess, evaluations):
-        inputs = [SimpleNeuralNetwork._game_sate_to_input(evaluation.game_state, evaluation.possible_moves)
+        inputs = [SimpleNeuralNetwork._game_state_to_input(evaluation.game_state, evaluation.possible_moves)
                   for evaluation in evaluations]
         outputs = sess.run([self.out_prob, self.out_value], feed_dict={self.one_hot_x: inputs})
 
@@ -369,23 +370,18 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         return evaluations
 
     @staticmethod
-    def _game_sate_to_input(game_state, possible_moves):
+    def _game_state_to_input(game_state, possible_moves):
         board = game_state.board
 
-        result = np.empty([board.height, board.width], dtype=int)
+        result = np.zeros([board.height, board.width, N_RAW_VALUES + 1], dtype=int)
         for y in range(board.height):
             for x in range(board.width):
-                result[y][x] = board[(x, y)]
-
-        # OneHotEncode the inputs
-        one_hot_encoder = sklearn.preprocessing.OneHotEncoder(N_RAW_VALUES + 1, sparse=False)
-        result = one_hot_encoder.fit_transform(result)
-        result = np.reshape(result, [board.height, board.width, N_RAW_VALUES + 1])
+                result[y, x, board[(x, y)]] = 1
 
         # Mark all possible moves in the last one hot layer
         if not possible_moves:
             next_game_states = game_state.get_next_possible_moves()
-            possible_moves = [next_game_state.last_move for next_game_state in next_game_states]
+            possible_moves = [next_game_state.last_move[1] for next_game_state in next_game_states]
 
         for possible_move in possible_moves:
             x, y = possible_move[1]
@@ -409,7 +405,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         for evaluation in evaluations:
             normal_evaluations.append(evaluation.convert_to_normal())
 
-        inputs = [SimpleNeuralNetwork._game_sate_to_input(evaluation.game_state, evaluation.possible_moves)
+        inputs = [SimpleNeuralNetwork._game_state_to_input(evaluation.game_state, evaluation.possible_moves)
                   for evaluation in normal_evaluations]
         inputs = np.array(inputs)
 

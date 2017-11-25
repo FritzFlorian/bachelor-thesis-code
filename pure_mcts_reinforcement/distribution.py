@@ -21,12 +21,16 @@ class ParallelSelfplayPool:
         self.nn_executor_server.start()
         selfplay_pool = multiprocessing.Pool(processes=self.pool_size)
 
+        results = []
         for _ in range(self.n_games):
             nn_executor_client = core.NeuralNetworkExecutorClient('tcp://localhost:{}'.format(self.port))
             params = (self.game_state, nn_executor_client, self.simulations_per_turn)
-            selfplay_pool.apply_async(ParallelSelfplayPool.play_game, params, callback=self.callback)
+            result = selfplay_pool.apply_async(ParallelSelfplayPool.play_game, params, callback=self.callback)
+            results.append(result)
 
-        selfplay_pool.close()
+        for result in results:
+            result.wait()
+        selfplay_pool.terminate()
         selfplay_pool.join()
         self.nn_executor_server.stop()
 
@@ -73,7 +77,7 @@ class ParallelSelfplayEvaluationPool:
             parameters.append((self.maps, games_per_tournament, self.n_simulations, nn_client_one, nn_client_two))
 
         results = selfplay_pool.map(ParallelSelfplayEvaluationPool.play_tournament, parameters)
-        selfplay_pool.close()
+        selfplay_pool.terminate()
         selfplay_pool.join()
 
         result_sum = [0, 0]

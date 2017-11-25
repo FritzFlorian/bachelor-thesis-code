@@ -9,7 +9,7 @@ import multiprocessing
 import threading
 import queue
 import os
-import sklearn.model_selection as model_selection
+import concurrent.futures
 import pickle
 import random
 import time
@@ -297,12 +297,12 @@ class NeuralNetworkExecutorServer(multiprocessing.Process):
         self.stopped = False
 
     class Message:
-        def __init__(self, response_id, evaluation_bytes):
-            self.response_id = response_id
+        def __init__(self, response_ids, evaluation_bytes):
+            self.response_ids = response_ids
             self.evaluation = pickle.loads(evaluation_bytes)
 
         def to_multipart(self):
-            return [self.response_id, b'', pickle.dumps(self.evaluation)]
+            return self.response_ids + [b'', pickle.dumps(self.evaluation)]
 
     def run(self):
         # Init Network Code
@@ -321,11 +321,9 @@ class NeuralNetworkExecutorServer(multiprocessing.Process):
 
                 messages = []
                 while not self.stopped:
-                    # Don't  busy wait all the time
-                    time.sleep(0.001)
                     try:
                         message = self.socket.recv_multipart(flags=zmq.NOBLOCK)
-                        messages.append(NeuralNetworkExecutorServer.Message(message[0], message[2]))
+                        messages.append(NeuralNetworkExecutorServer.Message(message[0:-2], message[-1]))
 
                         if len(messages) >= self.batch_size:
                             self._execute_batch(sess, messages)
@@ -335,6 +333,9 @@ class NeuralNetworkExecutorServer(multiprocessing.Process):
                         if len(messages) >= 1:
                             self._execute_batch(sess, messages)
                             messages = []
+                        else:
+                            # Don't  busy wait all the time
+                            time.sleep(0.001)
 
                     # TODO: Find better way to stop the working server
                     try:
@@ -375,16 +376,31 @@ class NeuralNetworkExecutorClient:
         self.address = address
 
         self.context = None
-        self.socket = None
+        self.nn_server_socket = None
+        self.internal_router = None
+
+        self.internal_address = 'inproc://nn_client_router'
 
     def stop(self):
-        self.socket.close()
+        self.internal_router.close()
+        self.nn_server_socket.close()
         self.context.term()
 
     def start(self):
         self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REQ)
-        self.socket.connect(self.address)
+
+        self.nn_server_socket = self.context.socket(zmq.DEALER)
+        self.nn_server_socket.connect(self.address)
+
+        self.internal_router = self.context.socket(zmq.ROUTER)
+        self.internal_router.bind(self.internal_address)
+
+        def run_proxy():
+            try:
+                zmq.proxy(self.internal_router, self.nn_server_socket)
+            except zmq.ZMQError:
+                pass  # The closed proxy is on purpose, so ignore the error.
+        threading.Thread(target=run_proxy).start()
 
     def execute(self, game_state) -> Evaluation:
         """Executes a neural network to evaluate a given game state.
@@ -398,8 +414,15 @@ class NeuralNetworkExecutorClient:
         evaluation = evaluation.apply_transformation(random.randint(0, 6))
 
         # Execute it using the neural network process.
-        self.socket.send_pyobj(evaluation)
-        evaluation = self.socket.recv_pyobj()
+        # We hand it through our internal proxy to be able to
+        # map parallel execution results properly.
+        client = self.context.socket(zmq.REQ)
+        client.connect(self.internal_address)
+
+        client.send_pyobj(evaluation)
+        evaluation = client.recv_pyobj()
+
+        client.close()
 
         # Undo our random rotation on the instance.
         evaluation = evaluation.undo_transformations()
@@ -415,51 +438,79 @@ class MCTSNode:
     def __init__(self, probability):
         self.probability = probability
         self.visits = 0
-        self.total_action_value = None
-        self.mean_action_value = None
+        self.total_action_value = {player: 0 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
+        self.mean_action_value = {player: 0 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
         self.children = None
         self.is_leave = False
 
+        # Needed to allow multithreaded tree search
+        self.lock = threading.Lock()
+
+        # Virtual losses...
+        self.virtual_loss = {player: -1 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
+        self.undo_virtual_loss = {player: 1 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
+
     def run_simulation_step(self, nn_executor: NeuralNetworkExecutorClient, game_state: GameState):
-        if self.is_leave:
-            self.visits = self.visits + 1
-            self._update_action_value(game_state.calculate_scores())
+        # Add virtual loss
+        self._update_action_value(self.virtual_loss)
 
-            return game_state.calculate_scores()
-        elif self.is_expanded():
-            move = self._select_move()
-            child = self.children[move]
+        try:
+            if self.is_leave:
+                self._increase_visits()
+                self._update_action_value(game_state.calculate_scores())
 
-            (player, pos, choice) = move
-            new_game_state = game_state.execute_move(player, pos, choice)
-            result = child.run_simulation_step(nn_executor, new_game_state)
+                return game_state.calculate_scores()
 
-            self.visits = self.visits + 1
-            self._update_action_value(result)
+            if self.is_expanded():
+                move = self._select_move()
+                child = self.children[move]
 
-            return result
-        else:
+                (player, pos, choice) = move
+                new_game_state = game_state.execute_move(player, pos, choice)
+                result = child.run_simulation_step(nn_executor, new_game_state)
+
+                self._increase_visits()
+                self._update_action_value(result)
+
+                # Remove virtual loss
+                self._update_action_value({game_state.calculate_next_player(): 1})
+
+                return result
+
+            # Expanding needs a lock
+            self.lock.acquire()
+            # We already expanded in another thread, simply re-run.
+            if self.is_expanded():
+                self.lock.release()
+                return self.run_simulation_step(nn_executor, game_state)
+
+            # We actually need to expand here, lets go
             next_states = game_state.get_next_possible_moves()
             if len(next_states) <= 0:
-                self.total_action_value = game_state.calculate_scores()
                 self.is_leave = True
+                self.lock.release()
+                self._update_action_value(game_state.calculate_scores())
             else:
                 evaluation = nn_executor.execute(game_state)
-                self.total_action_value = evaluation.expected_result
                 self._expand(evaluation, next_states)
+                self.lock.release()
+                self._update_action_value(evaluation.expected_result)
 
-            self.visits = self.visits + 1
+            self._increase_visits()
             self.mean_action_value = copy.deepcopy(self.total_action_value)
             return self.total_action_value
+        finally:
+            # Remove virtual loss
+            self._update_action_value(self.undo_virtual_loss)
 
     def _expand(self, evaluation: Evaluation, next_states):
+        if self.children:
+            return
+
         self.children = dict()
-        # print('====================')
         for next_state in next_states:
             move = next_state.last_move
-            # print(evaluation.probabilities[move])
             self.children[move] = MCTSNode(evaluation.probabilities[move])
-        # print('====================')
 
     def _select_move(self):
         # Select a move using the variant of the PUCT algorithm
@@ -492,9 +543,14 @@ class MCTSNode:
         return best_move
 
     def _update_action_value(self, new_action_value):
-        for player, value in new_action_value.items():
-            self.total_action_value[player] = self.total_action_value[player] + value
-            self.mean_action_value[player] = self.total_action_value[player] / self.visits
+        with self.lock:
+            for player, value in new_action_value.items():
+                self.total_action_value[player] = self.total_action_value[player] + value
+                self.mean_action_value[player] = self.total_action_value[player] / max(self.visits, 1)
+
+    def _increase_visits(self):
+        with self.lock:
+            self.visits = self.visits + 1
 
     def is_expanded(self):
         return not not self.children
@@ -507,17 +563,27 @@ class MCTSExecutor:
     is to run a specific number of simulation steps starting at a given game state.
 
     It returns the target move probabilities and the target value of the given game sate."""
-    def __init__(self, game_state, nn_executor, root_node: MCTSNode=None):
+    def __init__(self, game_state, nn_executor, root_node: MCTSNode=None, thread_executor=None):
         self.nn_executor = nn_executor
         self.start_game_state = game_state
         self.root_node = root_node
+
+        self.thread_executor = thread_executor
 
     def run(self, n_simulations):
         if not self.root_node:
             self.root_node = MCTSNode(1.0)
 
-        for i in range(n_simulations):
-            self.root_node.run_simulation_step(self.nn_executor, self.start_game_state)
+        # We can run serial or parallel in a thread pool
+        if not self.thread_executor:
+            for i in range(n_simulations):
+                self.root_node.run_simulation_step(self.nn_executor, self.start_game_state)
+        else:
+            futures = []
+            for i in range(n_simulations):
+                futures.append(self.thread_executor.submit(self.root_node.run_simulation_step,
+                                                           self.nn_executor, self.start_game_state))
+            concurrent.futures.wait(futures)
 
     def move_probabilities(self, temperature):
         """Returns each move and its probability. Temperature controls how much extreme values are damped."""
@@ -548,7 +614,12 @@ class SelfplayExecutor:
         self.temperature = 1.0
 
     def run(self):
+        threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+
         while True:
+            # Attach our threadpool to the current executor
+            self.current_executor.thread_executor = threadpool
+
             # Make sure the game is not finished
             next_states = self.current_game_state.get_next_possible_moves()
             if len(next_states) == 0:
@@ -590,6 +661,7 @@ class SelfplayExecutor:
                 transformed_evaluation = evaluation.apply_transformation(i)
                 self.evaluations.append(transformed_evaluation)
 
+        threadpool.shutdown(wait=False)
         return self.evaluations
 
     def _create_evaluation(self):
@@ -768,8 +840,10 @@ class ModelEvaluator:
         self.nn_executor_one = nn_executor_one
         self.nn_executor_two = nn_executor_two
         self.map_paths = map_paths
+        self.thread_pool = None
 
     def run(self, n_games, n_simulations):
+        self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
         total_scores = [0, 0]
 
         for i in range(n_games):
@@ -780,6 +854,7 @@ class ModelEvaluator:
             for j in range(2):
                 total_scores[j] = total_scores[j] + scores[j]
 
+        self.thread_pool.shutdown(wait=False)
         return total_scores
 
     def _play_game(self, map_path, n_simulations):
@@ -806,20 +881,12 @@ class ModelEvaluator:
                 executor = self.nn_executor_two
 
             # Run the actual simulation to find a move
-            mcts_executor = MCTSExecutor(current_game_state, executor)
+            mcts_executor = MCTSExecutor(current_game_state, executor, thread_executor=self.thread_pool)
             mcts_executor.run(n_simulations)
 
             # Find the best move
             selected_move = None
             best_probability = -1.0
-            if not mcts_executor.root_node.children:
-                print('===========')
-                print(game_state_copy.board.__string__())
-                print(current_game_state.board.__string__())
-                print(current_game_state._cached_next_player)
-                print(current_game_state.calculate_next_player())
-                print(current_player)
-
             for move, probability in mcts_executor.move_probabilities(1).items():
                 if probability > best_probability:
                     best_probability = probability

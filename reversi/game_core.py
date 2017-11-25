@@ -337,9 +337,9 @@ class Board:
                 return
 
             start_pos = (int(components[0]), int(components[1]))
-            start_dir = Direction(int(components[2]))
+            start_dir = int(components[2])
             end_pos = (int(components[4]), int(components[5]))
-            end_dir = Direction(int(components[6]))
+            end_dir = int(components[6])
 
             self.transitions[(start_pos, start_dir)] = (end_pos, Direction.mirror(end_dir))
             self.transitions[(end_pos, end_dir)] = (start_pos, Direction.mirror(start_dir))
@@ -363,7 +363,7 @@ class Board:
         # Don't question this, it makes python way faster
         _next_pos = self._next_pos
 
-        for dir in Direction:
+        for dir in DIRECTIONS:
             cur_captured = []
             # Don't question this, it makes python way faster
             append = cur_captured.append
@@ -430,7 +430,7 @@ class Board:
             return
 
         self[pos] = Field.HOLE
-        for dir in Direction:
+        for dir in DIRECTIONS:
             new_pos, _ = self._next_pos(pos, dir)
             self._execute_bomb_at_recursive(old_board, new_pos, strength - 1)
 
@@ -469,7 +469,7 @@ class Board:
             (x_1, y_1), dir_1 = k
             (x_2, y_2), dir_2 = v
             str_list.append("{} {} {} <-> {} {} {}"
-                            .format(x_1, y_1, dir_1.value, x_2, y_2, Direction.mirror(dir_2).value))
+                            .format(x_1, y_1, dir_1, x_2, y_2, Direction.mirror(dir_2)))
 
         return '\n'.join(str_list)
 
@@ -561,7 +561,7 @@ PLAYERS = {Field.PLAYER_ONE, Field.PLAYER_TWO, Field.PLAYER_THREE, Field.PLAYER_
            Field.PLAYER_FIVE, Field.PLAYER_SIX, Field.PLAYER_SEVEN, Field.PLAYER_EIGHT}
 
 
-class Direction(Enum):
+class Direction:
     TOP = 0
     TOP_RIGHT = 1
     RIGHT = 2
@@ -573,8 +573,8 @@ class Direction(Enum):
 
     @staticmethod
     def mirror(direction):
-        new_val = (direction.value + 4) % 8
-        return Direction(new_val)
+        new_val = (direction + 4) % 8
+        return new_val
 
 
 MOVEMENT = {
@@ -588,4 +588,6 @@ MOVEMENT = {
     Direction.TOP_LEFT: (-1, -1)
 }
 
+DIRECTIONS = (Direction.TOP, Direction.TOP_RIGHT, Direction.RIGHT, Direction.BOTTOM_RIGHT, Direction.BOTTOM,
+              Direction.BOTTOM_LEFT, Direction.LEFT, Direction.TOP_LEFT)
 FIELD_LOOKUP = ('-', '0', '1', '2', '3', '4', '5', '6', '7', '8', 'i', 'c', 'x', 'b')
