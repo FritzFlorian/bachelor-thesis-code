@@ -134,7 +134,7 @@ class ParallelAITrivialPool:
             parameters.append((self.maps, games_per_tournament, self.time, nn_client))
 
         results = selfplay_pool.map(ParallelAITrivialPool.play_tournament, parameters)
-        selfplay_pool.close()
+        selfplay_pool.terminate()
         selfplay_pool.join()
 
         scores_sum = [0, 0]

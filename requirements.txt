@@ -43,7 +43,7 @@ scikit-learn==0.19.0
 scipy==0.19.1
 simplegeneric==0.8.1
 six==1.11.0
-tensorflow==1.4.0rc0
+tensorflow==1.4.0
 tensorflow-tensorboard==0.4.0rc1
 terminado==0.6
 testpath==0.3.1
@@ -52,3 +52,4 @@ traitlets==4.3.2
 wcwidth==0.1.7
 Werkzeug==0.12.2
 widgetsnbextension==3.0.6
+yappi==0.98

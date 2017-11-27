@@ -2,12 +2,9 @@ import pure_mcts_reinforcement.core as core
 import pure_mcts_reinforcement.distribution as distribution
 import tensorflow as tf
 import numpy as np
-import sklearn.preprocessing
 from reversi.game_core import Field, Board, GameState
 import multiprocessing
 import os
-import time
-import random
 
 
 BOARD_HEIGHT = 8
@@ -18,11 +15,11 @@ BOARD_WIDTH = 8
 N_RAW_VALUES = 3
 FLOAT = tf.float32
 
-L2_LOSS_WEIGHT = 0.002
+L2_LOSS_WEIGHT = 0.001
 
 # Number of games played to gather training data per epoch (per NN configuration)
-GAMES_PER_EPOCH = 42
-SIMULATIONS_PER_GAME_TURN = 164
+GAMES_PER_EPOCH = 35
+SIMULATIONS_PER_GAME_TURN = 128
 
 TRAINING_BATCHES_PER_EPOCH = 2_500
 BATCH_SIZE = 128
@@ -33,11 +30,11 @@ CHECKPOINT_FOLDER = 'checkpoints'
 DATA_FOLDER = 'data'
 BEST_CHECKPOINT_FOLDER = 'best-checkpoint'
 
-N_EVALUATION_GAMES = 14
-SIMULATIONS_PER_GAME_TURN_EVALUATION = 64
+N_EVALUATION_GAMES = 21
+SIMULATIONS_PER_GAME_TURN_EVALUATION = 48
 NEEDED_AVG_SCORE = 0.1
 
-N_AI_EVALUATION_GAMES = 14
+N_AI_EVALUATION_GAMES = 21
 
 
 def main():
@@ -51,7 +48,7 @@ def main():
 
     # Current run...
     # run_dir = './run_{}'.format(round(time.time() * 1000))
-    run_dir = './run_multithreading'
+    run_dir = './run_final_8_by_8_run'
 
     best_model_dir = os.path.join(run_dir, BEST_CHECKPOINT_FOLDER)
     best_model_file = os.path.join(best_model_dir, 'checkpoint.ckpt')
@@ -247,8 +244,8 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             self.loss = tf.add_n([self.prob_loss, self.value_loss, self.reg_loss], name="loss")
 
         with tf.name_scope('Training'):
-            # For now simply go with the 'go-to' adam optimizer.
-            optimizer = tf.train.GradientDescentOptimizer(0.1)
+            # Use a simpler optimizer to avoid issues because of it
+            optimizer = tf.train.MomentumOptimizer(0.05, 0.9)
             self.training_op = optimizer.minimize(self.loss)
 
         with tf.name_scope('Logging'):

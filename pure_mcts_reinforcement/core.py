@@ -30,7 +30,8 @@ class Evaluation:
         self.game_state = game_state
 
         # Add dummy values for move probabilities and expected game results
-        self.possible_moves = [game_state.last_move for game_state in self.game_state.get_next_possible_moves()]
+        next_game_states = self.game_state.get_next_possible_moves()
+        self.possible_moves = [game_state.last_move for game_state in next_game_states]
         self.probabilities = dict()
         for move in self.possible_moves:
             self.probabilities[move] = 0.0
@@ -416,6 +417,15 @@ class NeuralNetworkExecutorClient:
         # Execute it using the neural network process.
         # We hand it through our internal proxy to be able to
         # map parallel execution results properly.
+        evaluation = self._send_to_server(evaluation)
+
+        # Undo our random rotation on the instance.
+        evaluation = evaluation.undo_transformations()
+        evaluation = evaluation.convert_from_normal()
+
+        return evaluation
+
+    def _send_to_server(self, evaluation):
         client = self.context.socket(zmq.REQ)
         client.connect(self.internal_address)
 
@@ -424,10 +434,6 @@ class NeuralNetworkExecutorClient:
 
         client.close()
 
-        # Undo our random rotation on the instance.
-        evaluation = evaluation.undo_transformations()
-        evaluation = evaluation.convert_from_normal()
-
         return evaluation
 
 
@@ -435,8 +441,9 @@ class MCTSNode:
     """A single node in the constructed search tree.
 
     Each node holds its visit count, its value and its direct child nodes."""
-    def __init__(self, probability):
+    def __init__(self, probability, game_state):
         self.probability = probability
+        self.game_state = game_state
         self.visits = 0
         self.total_action_value = {player: 0 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
         self.mean_action_value = {player: 0 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
@@ -450,30 +457,28 @@ class MCTSNode:
         self.virtual_loss = {player: -1 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
         self.undo_virtual_loss = {player: 1 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
 
-    def run_simulation_step(self, nn_executor: NeuralNetworkExecutorClient, game_state: GameState):
+    def run_simulation_step(self, nn_executor: NeuralNetworkExecutorClient):
         # Add virtual loss
         self._update_action_value(self.virtual_loss)
 
         try:
             if self.is_leave:
                 self._increase_visits()
-                self._update_action_value(game_state.calculate_scores())
+                self._update_action_value(self.game_state.calculate_scores())
 
-                return game_state.calculate_scores()
+                return self.game_state.calculate_scores()
 
             if self.is_expanded():
                 move = self._select_move()
                 child = self.children[move]
 
-                (player, pos, choice) = move
-                new_game_state = game_state.execute_move(player, pos, choice)
-                result = child.run_simulation_step(nn_executor, new_game_state)
+                result = child.run_simulation_step(nn_executor)
 
                 self._increase_visits()
                 self._update_action_value(result)
 
                 # Remove virtual loss
-                self._update_action_value({game_state.calculate_next_player(): 1})
+                self._update_action_value({self.game_state.calculate_next_player(): 1})
 
                 return result
 
@@ -482,16 +487,16 @@ class MCTSNode:
             # We already expanded in another thread, simply re-run.
             if self.is_expanded():
                 self.lock.release()
-                return self.run_simulation_step(nn_executor, game_state)
+                return self.run_simulation_step(nn_executor)
 
             # We actually need to expand here, lets go
-            next_states = game_state.get_next_possible_moves()
+            next_states = self.game_state.get_next_possible_moves()
             if len(next_states) <= 0:
                 self.is_leave = True
                 self.lock.release()
-                self._update_action_value(game_state.calculate_scores())
+                self._update_action_value(self.game_state.calculate_scores())
             else:
-                evaluation = nn_executor.execute(game_state)
+                evaluation = nn_executor.execute(self.game_state)
                 self._expand(evaluation, next_states)
                 self.lock.release()
                 self._update_action_value(evaluation.expected_result)
@@ -510,7 +515,7 @@ class MCTSNode:
         self.children = dict()
         for next_state in next_states:
             move = next_state.last_move
-            self.children[move] = MCTSNode(evaluation.probabilities[move])
+            self.children[move] = MCTSNode(evaluation.probabilities[move], next_state)
 
     def _select_move(self):
         # Select a move using the variant of the PUCT algorithm
@@ -520,7 +525,7 @@ class MCTSNode:
         sqrt_total_child_visits = math.sqrt(self.visits)
         # constant determining exploration
         # TODO: alter this value to find good fit
-        c_puct = 1.0
+        c_puct = 2.0
 
         best_move_value = -100.0
         best_move = None
@@ -572,17 +577,16 @@ class MCTSExecutor:
 
     def run(self, n_simulations):
         if not self.root_node:
-            self.root_node = MCTSNode(1.0)
+            self.root_node = MCTSNode(1.0, self.start_game_state)
 
         # We can run serial or parallel in a thread pool
         if not self.thread_executor:
             for i in range(n_simulations):
-                self.root_node.run_simulation_step(self.nn_executor, self.start_game_state)
+                self.root_node.run_simulation_step(self.nn_executor)
         else:
             futures = []
             for i in range(n_simulations):
-                futures.append(self.thread_executor.submit(self.root_node.run_simulation_step,
-                                                           self.nn_executor, self.start_game_state))
+                futures.append(self.thread_executor.submit(self.root_node.run_simulation_step, self.nn_executor))
             concurrent.futures.wait(futures)
 
     def move_probabilities(self, temperature):
@@ -667,7 +671,7 @@ class SelfplayExecutor:
     def _create_evaluation(self):
         """Creates an evaluation of the current MCTSExecutor and adds it to self.evaluations."""
         evaluation = Evaluation(self.current_game_state)
-        evaluation.probabilities = self.current_executor.move_probabilities(0.5)
+        evaluation.probabilities = self.current_executor.move_probabilities(1.0)
 
         self.evaluations.append(evaluation)
 
@@ -869,7 +873,6 @@ class ModelEvaluator:
         player_mapping = {tmp[0]: 0, tmp[1]: 1}
 
         while True:
-            game_state_copy = copy.deepcopy(current_game_state)
             current_player = current_game_state.calculate_next_player()
             if current_player is None:
                 break
@@ -881,12 +884,13 @@ class ModelEvaluator:
                 executor = self.nn_executor_two
 
             # Run the actual simulation to find a move
-            mcts_executor = MCTSExecutor(current_game_state, executor, thread_executor=self.thread_pool)
+            mcts_executor = MCTSExecutor(current_game_state, executor)
             mcts_executor.run(n_simulations)
 
             # Find the best move
             selected_move = None
             best_probability = -1.0
+
             for move, probability in mcts_executor.move_probabilities(1).items():
                 if probability > best_probability:
                     best_probability = probability

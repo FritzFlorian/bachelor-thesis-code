@@ -8,4 +8,4 @@ def copy(obj):
 
 
 def deepcopy(obj):
-    return pickle.loads(pickle.dumps(obj))
+    return pickle.loads(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))

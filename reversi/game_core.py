@@ -41,7 +41,7 @@ class GameState:
             self.player_bombs[player] = board.n_bombs
             self.player_overwrites[player] = board.n_overwrite
             self.players.add(player)
-        self.start_players = copy.copy(self.players)
+        self.start_players = copy.deepcopy(self.players)
 
     def execute_move(self, player, pos, choice):
         if not self.bomb_phase:
@@ -104,9 +104,7 @@ class GameState:
         return possible_moves
 
     def _minimal_copy(self, new_board, last_move):
-        new_game_state = copy.copy(self)
-        new_game_state.player_bombs = copy.deepcopy(self.player_bombs)
-        new_game_state.player_overwrites = copy.deepcopy(self.player_overwrites)
+        new_game_state = copy.deepcopy(self)
 
         new_game_state._cached_next_player = None
         new_game_state.board = new_board
@@ -353,7 +351,7 @@ class Board:
             return 'error', None
 
         need_overwrite = False
-        if self.is_player_at(pos) or self[pos] == Field.EXPANSION:
+        if self[pos] in PLAYERS or self[pos] == Field.EXPANSION:
             need_overwrite = True
 
         if need_overwrite and not use_overwrite:
@@ -406,7 +404,7 @@ class Board:
     def execute_inversion(self):
         for x in range(self.width):
             for y in range(self.height):
-                if self.is_player_at((x, y)):
+                if self[(x, y)] in PLAYERS:
                     raw_value = self[(x, y)] - Field.PLAYER_ONE
                     raw_value = (raw_value + 1) % self.n_players
                     self[(x, y)] = raw_value + Field.PLAYER_ONE
@@ -441,9 +439,6 @@ class Board:
         x, y = pos
         x_add, y_add = MOVEMENT[dir]
         return (x + x_add, y + y_add), dir
-
-    def is_player_at(self, pos):
-        return pos in self and self[pos] in PLAYERS
 
     def count(self, fields):
         """Count the number of individual fields on the board. Counts only the values given in fields."""
