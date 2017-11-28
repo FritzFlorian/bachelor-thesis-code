@@ -525,7 +525,7 @@ class MCTSNode:
         sqrt_total_child_visits = math.sqrt(self.visits)
         # constant determining exploration
         # TODO: alter this value to find good fit
-        c_puct = 2.0
+        c_puct = 1.5
 
         best_move_value = -100.0
         best_move = None
@@ -920,23 +920,28 @@ class AITrivialEvaluator:
     def run(self, n_games, time):
         total_scores = [0, 0]
         total_stones = [0, 0]
+        threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
-        for i in range(n_games):
+        i = 0
+        while i < n_games:
             map_path = np.random.choice(self.map_paths)
             try:
-                scores, stones = self._play_game(map_path, time)
+                scores, stones = self._play_game(map_path, time, threadpool)
 
                 # TODO: Make universal for more then two players
                 for j in range(2):
                     total_scores[j] = total_scores[j] + scores[j]
                     total_stones[j] = total_stones[j] + stones[j]
+
+                i = i + 1
             except IOError:
                 # TODO: Handle Ports Properly
                 print('Port Conflict...')
 
+        threadpool.shutdown(False)
         return total_scores, total_stones
 
-    def _play_game(self, map_path, turn_time):
+    def _play_game(self, map_path, turn_time, threadpool):
         with open(map_path, 'r') as file:
             board = Board(file.read())
         current_game_state = GameState(board)
@@ -963,12 +968,12 @@ class AITrivialEvaluator:
             selected_move = None
             # Find the correct nn to execute this move
             if player_mapping[current_player] == 0:
-                end_time = time.clock() + turn_time
+                end_time = time.time() + turn_time
 
-                mcts_executor = MCTSExecutor(current_game_state, self.nn_executor)
+                mcts_executor = MCTSExecutor(current_game_state, self.nn_executor, thread_executor=threadpool)
 
-                while time.clock() < end_time:
-                    mcts_executor.run(2)
+                while time.time() < end_time:
+                    mcts_executor.run(4)
 
                 # Find the best move
                 best_probability = -1.0

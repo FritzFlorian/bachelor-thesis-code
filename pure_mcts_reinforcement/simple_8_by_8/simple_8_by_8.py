@@ -21,7 +21,7 @@ L2_LOSS_WEIGHT = 0.001
 GAMES_PER_EPOCH = 35
 SIMULATIONS_PER_GAME_TURN = 128
 
-TRAINING_BATCHES_PER_EPOCH = 2_500
+TRAINING_BATCHES_PER_EPOCH = 2_000
 BATCH_SIZE = 128
 
 N_EPOCHS = 50
@@ -82,10 +82,33 @@ def main():
         current_data_dir = os.path.join(run_dir, DATA_FOLDER, 'epoch-{0:05d}'.format(epoch))
         current_ckpt_dir = os.path.join(run_dir, CHECKPOINT_FOLDER, 'ckpt-{0:05d}'.format(epoch))
         current_ckpt_file = os.path.join(current_ckpt_dir, 'checkpoint.ckpt')
+        last_ckpt_dir = os.path.join(run_dir, CHECKPOINT_FOLDER, 'ckpt-{0:05d}'.format(epoch - 1))
+        if epoch <= 0:
+            last_ckpt_dir = best_model_dir
+        last_ckpt_file = os.path.join(last_ckpt_dir, 'checkpoint.ckpt')
+
+        # Evaluate vs. ai trivial
+        print("Start AI Evaluation for epoch {}...".format(epoch))
+        if progress.is_finished('ai-evaluation'):
+            print("Skip AI Evaluation, already done...")
+        else:
+            parallel_tournament = distribution.ParallelAITrivialPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
+                                                                     best_model_file, N_AI_EVALUATION_GAMES,
+                                                                     1.0, pool_size=7, batch_size=32)
+            scores, stones = parallel_tournament.run()
+            print('Tournament Scores: AI {} vs. NN {}'.format(scores[1], scores[0]))
+            print('Tournament Stones: AI {} vs. NN {}'.format(stones[1], stones[0]))
+            with open(stats_file, 'a') as file:
+                nn_wins = (scores[0] + N_AI_EVALUATION_GAMES) / 2
+                ai_wins = (scores[1] + N_AI_EVALUATION_GAMES) / 2
+                file.write('{},{},{},{},{}\n'.format(epoch, nn_wins, ai_wins, stones[0], stones[1]))
+
+            progress.set_finished('ai-evaluation')
 
         # Make sure to add training data to our training executor.
-        training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), best_model_file, current_data_dir)
+        training_executor = core.TrainingExecutor(SimpleNeuralNetwork(), last_ckpt_file, current_data_dir)
         training_executor.start()
+
         def game_finished(evaluations):
             print('Add {} evaluations to training data.'.format(len(evaluations)))
             training_executor.add_examples(evaluations)
@@ -122,7 +145,6 @@ def main():
 
         # See if we choose the new one as best network
         print("Start Evaluation of epoch {} versus last epoch...".format(epoch))
-        new_model_was_better = True
         if progress.is_finished('self-evaluation'):
             print('Skipping Evaluation, already done...')
         else:
@@ -138,30 +160,9 @@ def main():
             if scores[1] >= NEEDED_AVG_SCORE:
                 print('Using new model, as its average score is {} >= {}'.format(scores[1], NEEDED_AVG_SCORE))
                 training_executor.save(best_model_file)
-                new_model_was_better = True
-            else:
-                new_model_was_better = False
 
             training_executor.stop()
             progress.set_finished('self-evaluation')
-
-        # Evaluate vs. ai trivial
-        print("Start AI Evaluation for epoch {}...".format(epoch))
-        if progress.is_finished('ai-evaluation'):
-            print("Skip AI Evaluation, already done...")
-        else:
-            if new_model_was_better:
-                parallel_tournament = distribution.ParallelAITrivialPool(['./simple_8_by_8.map'], SimpleNeuralNetwork(),
-                                                                             best_model_file, N_AI_EVALUATION_GAMES, 1.0)
-                scores, stones = parallel_tournament.run()
-                print('Tournament Scores: AI {} vs. NN {}'.format(scores[1], scores[0]))
-                print('Tournament Stones: AI {} vs. NN {}'.format(stones[1], stones[0]))
-                with open(stats_file, 'a') as file:
-                    file.write('{},{},{},{},{}\n'.format(epoch, scores[0], scores[1], stones[0], stones[1]))
-            else:
-                print("Skip AI Evaluation, new model was not better then last one...")
-
-            progress.set_finished('ai-evaluation')
 
         progress.add_epoch()
 
@@ -174,6 +175,7 @@ def create_directory(directory):
 def count_directory_items(directory):
     return len([name for name in os.listdir(directory) if os.path.isfile(os.path.join(directory, name))])
 
+
 class SimpleNeuralNetwork(core.NeuralNetwork):
     def __init__(self):
         super().__init__()
@@ -182,7 +184,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
         self._construct_inputs()
 
         with tf.name_scope('Convolutional-Layers'):
-            conv1 = self._construct_conv_layer(self.one_hot_x, 32, 'cov1')
+            conv1 = self._construct_conv_layer(self.one_hot_x, 32, 'cov1', activation=tf.nn.tanh)
             res1 = self._construct_residual_block(conv1, 32, 'res1')
             res2 = self._construct_residual_block(res1, 32, 'res2')
             res3 = self._construct_residual_block(res2, 32, 'res3')
@@ -199,7 +201,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             flattered_prob_conv = tf.reshape(prob_conv, [-1, n_filters * BOARD_WIDTH * BOARD_HEIGHT])
             # Add a fully connected hidden layer.
             prob_hidden = self._construct_dense_layer(flattered_prob_conv, BOARD_WIDTH * BOARD_HEIGHT, 'prob_hidden',
-                                                      activation=tf.nn.leaky_relu)
+                                                      activation=tf.nn.tanh)
             prob_hidden_dropout = tf.layers.dropout(prob_hidden, training=self.training)
             # Add a fully connected output layer.
             self.out_prob_logits = self._construct_dense_layer(prob_hidden_dropout, BOARD_WIDTH * BOARD_HEIGHT, 'prob_logits')
@@ -215,7 +217,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             flattered_value_conv = tf.reshape(value_conv, [-1, 1 * BOARD_WIDTH * BOARD_HEIGHT])
             # Add a fully connected hidden layer.
             value_hidden = self._construct_dense_layer(flattered_value_conv, BOARD_WIDTH * BOARD_HEIGHT, 'value_hidden',
-                                                       activation=tf.nn.leaky_relu)
+                                                       activation=tf.nn.tanh)
             value_hidden_dropout = tf.layers.dropout(value_hidden, training=self.training)
             # Add a fully connected output layer.
             value_scalar = self._construct_dense_layer(value_hidden_dropout, 1, 'value_output')
@@ -245,7 +247,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
 
         with tf.name_scope('Training'):
             # Use a simpler optimizer to avoid issues because of it
-            optimizer = tf.train.MomentumOptimizer(0.05, 0.9)
+            optimizer = tf.train.MomentumOptimizer(0.001, 0.9)
             self.training_op = optimizer.minimize(self.loss)
 
         with tf.name_scope('Logging'):
@@ -280,7 +282,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
             self.y_prob = tf.placeholder(FLOAT, shape=[None, BOARD_HEIGHT * BOARD_WIDTH], name='y_prob')
             self.y_value = tf.placeholder(FLOAT, shape=[None, 1], name='y_value')
 
-    def _construct_conv_layer(self, input, n_filters, name, kernel=[3, 3], stride=1, normalization=True):
+    def _construct_conv_layer(self, input, n_filters, name, kernel=[3, 3], stride=1, normalization=True, activation=None):
         """Construct a convolutional layer with the given settings.
 
         Kernel, stride and a optional normalization layer can be configured."""
@@ -291,7 +293,7 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
                 kernel_size=kernel,
                 strides=[stride, stride],
                 padding="same",
-                activation=tf.nn.leaky_relu,
+                activation=activation,
                 kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT))
             if normalization:
                 return conv
@@ -301,12 +303,11 @@ class SimpleNeuralNetwork(core.NeuralNetwork):
     def _construct_residual_block(self, input, n_filters, name):
         with tf.name_scope(name):
             conv1 = self._construct_conv_layer(input, n_filters, 'conv1')
-            conv1_relu = tf.nn.leaky_relu(conv1)
+            conv1_relu = tf.nn.tanh(conv1)
             conv2 = self._construct_conv_layer(conv1_relu, n_filters, 'conv2')
 
-            skip = input + conv2
-            return tf.nn.leaky_relu(skip)
-
+            skip = tf.add(input, conv2, 'skip_connection')
+            return tf.nn.tanh(skip)
 
     def _construct_dense_layer(self, input, n_nodes, name, activation=None):
         return tf.layers.dense(inputs=input, units=n_nodes, name=name, activation=activation,

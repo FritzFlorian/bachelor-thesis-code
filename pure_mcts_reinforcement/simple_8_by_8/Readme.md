@@ -1,7 +1,8 @@
 # Simple 8 by 8
 
 This experiment was used to understand the algorithm and to get all basic parts that are needed running.
-To execute this phase you have to add the 'ai_trivial' to this folder and run the 'simple_8_by_8.py' file.
+To execute this phase you have to add the 'ai_trivial' to this folder
+and run 'PYTHONPATH=../../ python simple_8_by_8.py'.
 
 ## General Structure
 
