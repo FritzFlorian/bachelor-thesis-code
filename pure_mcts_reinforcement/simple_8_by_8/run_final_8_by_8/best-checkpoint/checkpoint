@@ -1,0 +1,3 @@
+model_checkpoint_path: "checkpoint.ckpt"
+all_model_checkpoint_paths: "../checkpoints/ckpt-00017/checkpoint.ckpt"
+all_model_checkpoint_paths: "checkpoint.ckpt"

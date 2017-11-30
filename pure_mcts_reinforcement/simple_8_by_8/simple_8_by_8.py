@@ -48,7 +48,7 @@ def main():
 
     # Current run...
     # run_dir = './run_{}'.format(round(time.time() * 1000))
-    run_dir = './run_final_8_by_8_run'
+    run_dir = './run_final_8_by_8'
 
     best_model_dir = os.path.join(run_dir, BEST_CHECKPOINT_FOLDER)
     best_model_file = os.path.join(best_model_dir, 'checkpoint.ckpt')
