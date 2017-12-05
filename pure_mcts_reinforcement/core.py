@@ -5,7 +5,6 @@ import reversi.copy as copy
 import math
 import numpy as np
 import tensorflow as tf
-import multiprocessing
 import threading
 import queue
 import os
@@ -13,7 +12,7 @@ import concurrent.futures
 import pickle
 import random
 import time
-import zmq
+from pure_mcts_reinforcement.nn_client import NeuralNetworkClient
 
 
 class Evaluation:
@@ -248,195 +247,6 @@ class Evaluation:
         return self._swap_positions(swap_function)
 
 
-class NeuralNetwork:
-    """Wrapper that represents a single neural network instance.
-
-    This is intended to abstract away the actual creation, training and execution of the neural network.
-    This should hopefully also allow to re-use major parts of the code for different network structures.
-
-    The network is not responsible for managing its scope/tensorflow graph, this should be done
-    by the code that uses and executes it."""
-    def construct_network(self):
-        raise NotImplementedError("Add the construction of your custom graph structure.")
-
-    def init_network(self):
-        raise NotImplementedError("Run initialisation code for your network.")
-
-    def execute_batch(self, sess, evaluations):
-        raise NotImplementedError("Add implementation that takes evaluations and fills them as a batch.")
-
-    def train_batch(self, sess, evaluations):
-        raise NotImplementedError("Add implementation that executes one batch training step.")
-
-    def save_weights(self, sess, filename):
-        raise NotImplementedError("Add implementation that saves the weights of this network to a checkpoint.")
-
-    def load_weights(self, sess, filename):
-        raise NotImplementedError("Add implementation that loads the weights of this network to a checkpoint.")
-
-    def log_loss(self, sess, tf_file_writer, evaluations, epoch):
-        raise NotImplementedError("Add implementation to write average losses to the stats file and return them.")
-
-
-class NeuralNetworkExecutorServer(multiprocessing.Process):
-    """The actual process running the NN execution.
-
-    This is separate from the NN executor as it allows the NN executor to be passed to
-    different processes (it must be able to be pickled!).
-    All this is needed to work around the global interpreter lock of python."""
-    def __init__(self, neural_network: NeuralNetwork, weights_file, batch_size=1, port=6001):
-        """Configure the NN. This does not create any tf objects. For that the executor has to be started."""
-        super().__init__()
-        self.neural_network = neural_network
-        self.weights_file = weights_file
-        self.batch_size = batch_size
-        self.graph = None
-
-        self.stop_queue = multiprocessing.Queue()
-        self.port = port
-        self.socket = None
-        self.stopped = False
-
-    class Message:
-        def __init__(self, response_ids, evaluation_bytes):
-            self.response_ids = response_ids
-            self.evaluation = pickle.loads(evaluation_bytes)
-
-        def to_multipart(self):
-            return self.response_ids + [b'', pickle.dumps(self.evaluation)]
-
-    def run(self):
-        # Init Network Code
-        context = zmq.Context()
-        self.socket = context.socket(zmq.ROUTER)
-        self.socket.bind('tcp://*:{}'.format(self.port))
-
-        self.graph = tf.Graph()
-        with self.graph.as_default():
-            self.neural_network.construct_network()
-            with tf.Session() as sess:
-                self.neural_network.init_network()
-
-                if self.weights_file:
-                    self.neural_network.load_weights(sess, self.weights_file)
-
-                messages = []
-                while not self.stopped:
-                    try:
-                        message = self.socket.recv_multipart(flags=zmq.NOBLOCK)
-                        messages.append(NeuralNetworkExecutorServer.Message(message[0:-2], message[-1]))
-
-                        if len(messages) >= self.batch_size:
-                            self._execute_batch(sess, messages)
-                            messages = []
-                    except zmq.ZMQError:
-                        # Also execute not full batches if no new data arrived in time
-                        if len(messages) >= 1:
-                            self._execute_batch(sess, messages)
-                            messages = []
-                        else:
-                            # Don't  busy wait all the time
-                            time.sleep(0.001)
-
-                    # TODO: Find better way to stop the working server
-                    try:
-                        self.stop_queue.get(False)
-                        self.stopped = True
-                    except queue.Empty:
-                        pass
-
-        self.socket.close()
-        context.term()
-
-    def stop(self):
-        self.stop_queue.put('')
-
-    def _execute_batch(self, sess, messages):
-        evaluations = [message.evaluation for message in messages]
-        evaluations = self.neural_network.execute_batch(sess, evaluations)
-
-        for i in range(len(messages)):
-            messages[i].evaluation = evaluations[i]
-            self.socket.send_multipart(messages[i].to_multipart())
-
-
-class NeuralNetworkExecutorClient:
-    """Allows the evaluation of a given game state. Coordinates requests from different threads.
-
-    This is essentially a wrapper for a neural network instance with fixed weights
-    that sole purpose is to be executed for different game states.
-
-    The Executor starts a separate process. It only holds references to queues, so it
-    can be pickled (and therefore also passed to worker processes).
-
-    The class can for example transparently handle batch execution of the network by blocking
-    calls to evaluate game states until a full batch is reached."""
-    def __init__(self, address):
-        """Configure the NN. This does not create any tf objects. For that the executor has to be started."""
-        super().__init__()
-        self.address = address
-
-        self.context = None
-        self.nn_server_socket = None
-        self.internal_router = None
-
-        self.internal_address = 'inproc://nn_client_router'
-
-    def stop(self):
-        self.internal_router.close()
-        self.nn_server_socket.close()
-        self.context.term()
-
-    def start(self):
-        self.context = zmq.Context()
-
-        self.nn_server_socket = self.context.socket(zmq.DEALER)
-        self.nn_server_socket.connect(self.address)
-
-        self.internal_router = self.context.socket(zmq.ROUTER)
-        self.internal_router.bind(self.internal_address)
-
-        def run_proxy():
-            try:
-                zmq.proxy(self.internal_router, self.nn_server_socket)
-            except zmq.ZMQError:
-                pass  # The closed proxy is on purpose, so ignore the error.
-        threading.Thread(target=run_proxy).start()
-
-    def execute(self, game_state) -> Evaluation:
-        """Executes a neural network to evaluate a given game state.
-
-        Returns the evaluation generated by the network.
-        Might block for a while because other evaluations are being performed."""
-        # Create the evaluation to send to the NN.
-        # We will apply rotations on random instances.
-        evaluation = Evaluation(game_state)
-        evaluation = evaluation.convert_to_normal()
-        evaluation = evaluation.apply_transformation(random.randint(0, 6))
-
-        # Execute it using the neural network process.
-        # We hand it through our internal proxy to be able to
-        # map parallel execution results properly.
-        evaluation = self._send_to_server(evaluation)
-
-        # Undo our random rotation on the instance.
-        evaluation = evaluation.undo_transformations()
-        evaluation = evaluation.convert_from_normal()
-
-        return evaluation
-
-    def _send_to_server(self, evaluation):
-        client = self.context.socket(zmq.REQ)
-        client.connect(self.internal_address)
-
-        client.send_pyobj(evaluation)
-        evaluation = client.recv_pyobj()
-
-        client.close()
-
-        return evaluation
-
-
 class MCTSNode:
     """A single node in the constructed search tree.
 
@@ -457,7 +267,7 @@ class MCTSNode:
         self.virtual_loss = {player: -1 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
         self.undo_virtual_loss = {player: 1 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
 
-    def run_simulation_step(self, nn_executor: NeuralNetworkExecutorClient):
+    def run_simulation_step(self, nn_client: NeuralNetworkClient):
         # Add virtual loss
         self._update_action_value(self.virtual_loss)
 
@@ -472,7 +282,7 @@ class MCTSNode:
                 move = self._select_move()
                 child = self.children[move]
 
-                result = child.run_simulation_step(nn_executor)
+                result = child.run_simulation_step(nn_client)
 
                 self._increase_visits()
                 self._update_action_value(result)
@@ -487,7 +297,7 @@ class MCTSNode:
             # We already expanded in another thread, simply re-run.
             if self.is_expanded():
                 self.lock.release()
-                return self.run_simulation_step(nn_executor)
+                return self.run_simulation_step(nn_client)
 
             # We actually need to expand here, lets go
             next_states = self.game_state.get_next_possible_moves()
@@ -496,7 +306,7 @@ class MCTSNode:
                 self.lock.release()
                 self._update_action_value(self.game_state.calculate_scores())
             else:
-                evaluation = nn_executor.execute(self.game_state)
+                evaluation = nn_client.evaluate_game_state(self.game_state)
                 self._expand(evaluation, next_states)
                 self.lock.release()
                 self._update_action_value(evaluation.expected_result)
@@ -568,25 +378,25 @@ class MCTSExecutor:
     is to run a specific number of simulation steps starting at a given game state.
 
     It returns the target move probabilities and the target value of the given game sate."""
-    def __init__(self, game_state, nn_executor, root_node: MCTSNode=None, thread_executor=None):
-        self.nn_executor = nn_executor
+    def __init__(self, game_state, nn_client: NeuralNetworkClient, root_node: MCTSNode=None, thread_pool=None):
+        self.nn_client = nn_client
         self.start_game_state = game_state
         self.root_node = root_node
 
-        self.thread_executor = thread_executor
+        self.thread_pool = thread_pool
 
     def run(self, n_simulations):
         if not self.root_node:
             self.root_node = MCTSNode(1.0, self.start_game_state)
 
         # We can run serial or parallel in a thread pool
-        if not self.thread_executor:
+        if not self.thread_pool:
             for i in range(n_simulations):
-                self.root_node.run_simulation_step(self.nn_executor)
+                self.root_node.run_simulation_step(self.nn_client)
         else:
             futures = []
             for i in range(n_simulations):
-                futures.append(self.thread_executor.submit(self.root_node.run_simulation_step, self.nn_executor))
+                futures.append(self.thread_pool.submit(self.root_node.run_simulation_step, self.nn_client))
             concurrent.futures.wait(futures)
 
     def move_probabilities(self, temperature):
@@ -618,11 +428,11 @@ class SelfplayExecutor:
         self.temperature = 1.0
 
     def run(self):
-        threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+        thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
         while True:
-            # Attach our threadpool to the current executor
-            self.current_executor.thread_executor = threadpool
+            # Attach our thread pool to the current executor
+            self.current_executor.thread_pool = thread_pool
 
             # Make sure the game is not finished
             next_states = self.current_game_state.get_next_possible_moves()
@@ -665,7 +475,7 @@ class SelfplayExecutor:
                 transformed_evaluation = evaluation.apply_transformation(i)
                 self.evaluations.append(transformed_evaluation)
 
-        threadpool.shutdown(wait=False)
+        thread_pool.shutdown(wait=False)
         return self.evaluations
 
     def _create_evaluation(self):
@@ -676,115 +486,60 @@ class SelfplayExecutor:
         self.evaluations.append(evaluation)
 
 
-class TrainingExecutor(threading.Thread):
+class TrainingExecutor:
     """Manages the training process of a neural network.
 
-    This is managing the training set, test set and training process.
-    The class is given an initial weight configuration. It then is fed example data.
-    It has to manage the example data internally, split it into a training and test set."""
-    def __init__(self, neural_network: NeuralNetwork, weights_file, data_dir):
+    This is managing the training data and the training process.
+    The class is given neural network client to work with.
+
+    The training history size indicates how many of the last games to consider
+    for training (e.g. use the 500 most recent games of training data)."""
+    def __init__(self, nn_client: NeuralNetworkClient, data_dir, training_history_size):
         super().__init__()
-        self.neural_network = neural_network
-        self.weights_file = weights_file
-        self.graph = tf.Graph()
+        self.nn_client = nn_client
+        self.training_history_size = training_history_size
 
         # We will keep the training and test data in a local folder.
         # This class is only responsible for somehow doing the training,
         # this does not constrain it to run only on this machine,
         # but its a good start to have all training data somewhere for whatever training method.
-        self.training_dir = os.path.join(data_dir, 'training')
-        self.test_dir = os.path.join(data_dir, 'test')
-        if not os.path.exists(self.training_dir):
-            os.makedirs(self.training_dir)
-        if not os.path.exists(self.test_dir):
-            os.makedirs(self.test_dir)
+        self.data_dir = data_dir
+        if not os.path.exists(self.data_dir):
+            os.makedirs(self.data_dir)
 
-        # TODO: Replace this with a more sophisticated synchronization mechanism
         self.lock = threading.Lock()
-        self._n_training = 0
-        self._n_test = 0
-        self._cached_training = dict()
-        self._cached_test = dict()
+        self._cache = dict()
+        self._current_number = 0
 
-        # TODO: add more sophisticated synchronization to allow batching. It's ok for a first test.
-        self.request_queue = queue.Queue(1)
-
-        self.stopped = False
-
-    def run(self):
-        with self.graph.as_default():
-            self.neural_network.construct_network()
-            with tf.Session() as sess:
-                self.neural_network.init_network()
-                self.neural_network.load_weights(sess, self.weights_file)
-
-                while not self.stopped:
-                    try:
-                        event = self.request_queue.get(timeout=1)
-                        type = event.type
-                        args = event.args
-
-                        if type == 'train':
-                            event.result = self._run_train_batch_internal(sess, args)
-                        elif type == 'log_test_loss':
-                            file_writer, batch_size, epoch = args
-                            event.result = self._log_test_loss_internal(sess, file_writer, batch_size, epoch)
-                        elif type == 'log_train_loss':
-                            file_writer, batch_size, epoch = args
-                            event.result = self._log_training_loss_internal(sess, file_writer, batch_size, epoch)
-                        elif type == 'save':
-                            event.result = self.neural_network.save_weights(sess, args)
-
-                        event.set()
-                    except queue.Empty:
-                        pass
-
-    def stop(self):
-        self.stopped = True
-
-    def add_examples(self, evaluations, test_game=False):
+    def add_examples(self, evaluations):
         with self.lock:
-            if test_game:
-                directory = self.test_dir
-                self._n_test = self._n_test + 1
-                number = self._n_test
-                cache = self._cached_test
-            else:
-                directory = self.training_dir
-                self._n_training = self._n_training + 1
-                number = self._n_training
-                cache = self._cached_training
+            self._current_number = self._current_number + 1
 
-            with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'wb') as file:
+            with open(os.path.join(self.data_dir, "{0:010d}.pickle".format(self._current_number)), 'wb') as file:
                 pickle.dump(evaluations, file)
 
             # TODO: Better manage the cache
-            cache[number] = evaluations
+            # FIXME: Delete old elements from cache
+            self._cache[self._current_number] = evaluations
 
-    def get_examples(self, n_examples, test_game=False):
+    def get_examples(self, n_examples):
         with self.lock:
-            if test_game:
-                directory = self.test_dir
-                max_number = self._n_test
-                cache = self._cached_test
-            else:
-                directory = self.training_dir
-                max_number = self._n_training
-                cache = self._cached_training
-
             evaluations = []
             while len(evaluations) < n_examples:
-                number = random.randint(1, max_number)
-                loaded_evaluations = cache.get(number, None)
+                oldest_index = max(1, self._current_number - self.training_history_size)
+                number = random.randint(oldest_index, self._current_number + 1)
+                loaded_evaluations = self._cache.get(number, None)
 
                 if not loaded_evaluations:
                     try:
-                        with open(os.path.join(directory, "{0:010d}.pickle".format(number)), 'rb') as file:
+                        with open(os.path.join(self.data_dir, "{0:010d}.pickle".format(number)), 'rb') as file:
                             loaded_evaluations = pickle.load(file)
                     except IOError:
                         break
 
-                cache[number] = loaded_evaluations
+                # TODO: Better manage the cache
+                # FIXME: Delete old elements from cache
+                self._cache[number] = loaded_evaluations
 
                 random.shuffle(loaded_evaluations)
                 end_index = min(round(n_examples / 4 + 1), len(loaded_evaluations))
@@ -793,56 +548,23 @@ class TrainingExecutor(threading.Thread):
             return evaluations
 
     def save(self, filename):
-        event = threading.Event()
-        event.type = 'save'
-        event.args = filename
-        self.request_queue.put(event)
-        event.wait()
-        return event.result
+        weights_zip_binary = self.nn_client.save_weights()
+        with open(filename, 'wb') as file:
+            file.write(weights_zip_binary)
 
     def run_training_batch(self, batch_size=32):
-        event = threading.Event()
-        event.type = 'train'
-        event.args = batch_size
-        self.request_queue.put(event)
-        event.wait()
-        return event.result
+        evaluations = self.get_examples(batch_size)
+        self.nn_client.execute_training_batch(evaluations)
 
-    def _run_train_batch_internal(self, sess, batch_size):
-        evals = self.get_examples(batch_size)
-        self.neural_network.train_batch(sess, evals)
-        return None
-
-    def log_test_loss(self, file_writer, epoch, batch_size=32):
-        event = threading.Event()
-        event.type = 'log_test_loss'
-        event.args = (file_writer, batch_size, epoch)
-        self.request_queue.put(event)
-        event.wait()
-        return event.result
-
-    def _log_test_loss_internal(self, sess, file_writer, batch_size, epoch):
-        evals = self.get_examples(batch_size, test_game=True)
-        return self.neural_network.log_loss(sess, file_writer, evals, epoch)
-
-    def log_training_loss(self, file_writer, epoch, batch_size=32):
-        event = threading.Event()
-        event.type = 'log_train_loss'
-        event.args = (file_writer, batch_size, epoch)
-        self.request_queue.put(event)
-        event.wait()
-        return event.result
-
-    def _log_training_loss_internal(self, sess, file_writer, batch_size, epoch):
-        evals = self.get_examples(batch_size)
-        return self.neural_network.log_loss(sess, file_writer, evals, epoch)
+    def log_loss(self, epoch, batch_size=32):
+        raise NotImplementedError()
 
 
 class ModelEvaluator:
     """Compares two neural network configurations by playing out a small tournament."""
-    def __init__(self, nn_executor_one, nn_executor_two, map_paths):
-        self.nn_executor_one = nn_executor_one
-        self.nn_executor_two = nn_executor_two
+    def __init__(self, nn_client_one: NeuralNetworkClient, nn_client_two: NeuralNetworkClient, map_paths):
+        self.nn_client_one = nn_client_one
+        self.nn_client_two = nn_client_two
         self.map_paths = map_paths
         self.thread_pool = None
 
@@ -879,12 +601,12 @@ class ModelEvaluator:
 
             # Find the correct nn to execute this move
             if player_mapping[current_player] == 0:
-                executor = self.nn_executor_one
+                nn_client = self.nn_client_one
             else:
-                executor = self.nn_executor_two
+                nn_client = self.nn_client_two
 
             # Run the actual simulation to find a move
-            mcts_executor = MCTSExecutor(current_game_state, executor)
+            mcts_executor = MCTSExecutor(current_game_state, nn_client)
             mcts_executor.run(n_simulations)
 
             # Find the best move
@@ -913,8 +635,8 @@ class ModelEvaluator:
 
 class AITrivialEvaluator:
     """Compares a neural network to ai trivial by playing out a small tournament."""
-    def __init__(self, nn_executor, map_paths):
-        self.nn_executor = nn_executor
+    def __init__(self, nn_client, map_paths):
+        self.nn_client = nn_client
         self.map_paths = map_paths
 
     def run(self, n_games, time):
@@ -941,7 +663,7 @@ class AITrivialEvaluator:
         threadpool.shutdown(False)
         return total_scores, total_stones
 
-    def _play_game(self, map_path, turn_time, threadpool):
+    def _play_game(self, map_path, turn_time, thread_pool):
         with open(map_path, 'r') as file:
             board = Board(file.read())
         current_game_state = GameState(board)
@@ -970,7 +692,7 @@ class AITrivialEvaluator:
             if player_mapping[current_player] == 0:
                 end_time = time.time() + turn_time
 
-                mcts_executor = MCTSExecutor(current_game_state, self.nn_executor, thread_executor=threadpool)
+                mcts_executor = MCTSExecutor(current_game_state, self.nn_client, thread_pool=thread_pool)
 
                 while time.time() < end_time:
                     mcts_executor.run(4)
