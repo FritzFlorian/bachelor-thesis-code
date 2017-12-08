@@ -2,8 +2,8 @@ from reversi.client import Client
 import logging
 import concurrent.futures
 import time
-import pure_mcts_reinforcement.core as core
-import pure_mcts_reinforcement.simple_8_by_8.simple_8_by_8 as simple_8_by_8
+import reinforcement.core as core
+import reinforcement.simple_8_by_8.simple_8_by_8 as simple_8_by_8
 
 
 def main():

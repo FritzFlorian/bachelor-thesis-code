@@ -7,17 +7,16 @@ import tensorflow as tf
 import zmq
 import time
 import pickle
-import pure_mcts_reinforcement.nn_client as nn_client
-import pure_mcts_reinforcement.util as util
-import logging
+import reinforcement.nn_client as nn_client
+import reinforcement.util as util
 
 
 class NeuralNetworkServer:
-    def __init__(self, port, neural_network, input_conversion, output_conversion, batch_size):
+    def __init__(self, port, neural_network, batch_size):
         self.port = port
         self.neural_network = neural_network
-        self.input_conversion = input_conversion
-        self.output_conversion = output_conversion
+        self.input_conversion = neural_network.input_conversion_function()
+        self.output_conversion = neural_network.output_conversion_function()
         self.stopped = False
         self.socket = None
         self.execution_responses = []
@@ -53,12 +52,12 @@ class NeuralNetworkServer:
                             self._process_training_request(response_ids, message_content, sess)
                         elif isinstance(message_content, nn_client.SaveWeightsResponse):
                             self._process_save_weights_request(response_ids, message_content, sess)
-                        elif isinstance(message_content, nn_client.LoadWeightsRequest, sess):
+                        elif isinstance(message_content, nn_client.LoadWeightsRequest):
                             self._process_load_weights_request(response_ids, message_content, sess)
                         elif isinstance(message_content, nn_client.ConversionFunctionRequest):
                             self._process_conversion_function_request(response_ids, message_content)
                         else:
-                            logging.error("Unknown message '{}' received!".format(message_content))
+                            print("Unknown message '{}' received!".format(message_content))
 
                     except zmq.ZMQError:
                         # Also execute not full batches if no new data arrived in time
@@ -100,7 +99,7 @@ class NeuralNetworkServer:
         self.socket.send_multipart(response.to_multipart())
 
     def _process_load_weights_request(self, response_ids, message_content, sess):
-        util.load_neural_net_from_zip_binary(message_content.checkpoint_content, self.neural_network, sess)
+        util.load_neural_net_from_zip_binary(message_content.checkpoint_data, self.neural_network, sess)
 
         response = nn_client.Response(response_ids)
         self.socket.send_multipart(response.to_multipart())

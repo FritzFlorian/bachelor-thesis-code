@@ -4,15 +4,12 @@ import reversi.tournament as tournament
 import reversi.copy as copy
 import math
 import numpy as np
-import tensorflow as tf
 import threading
-import queue
 import os
 import concurrent.futures
 import pickle
 import random
 import time
-from pure_mcts_reinforcement.nn_client import NeuralNetworkClient
 
 
 class Evaluation:
@@ -147,7 +144,7 @@ class Evaluation:
         Returns the converted evaluation and does not change the original data!"""
         result = self
 
-        for transformation in self._applied_transformations:
+        for transformation in reversed(self._applied_transformations):
             result = result._undo_transformation(transformation)
 
         return result
@@ -261,13 +258,14 @@ class MCTSNode:
         self.is_leave = False
 
         # Needed to allow multithreaded tree search
-        self.lock = threading.Lock()
+        self.expand_lock = threading.Lock()
+        self.setter_lock = threading.Lock()
 
         # Virtual losses...
         self.virtual_loss = {player: -1 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
         self.undo_virtual_loss = {player: 1 for player in range(Field.PLAYER_ONE, Field.PLAYER_EIGHT + 1)}
 
-    def run_simulation_step(self, nn_client: NeuralNetworkClient):
+    def run_simulation_step(self, nn_client):
         # Add virtual loss
         self._update_action_value(self.virtual_loss)
 
@@ -287,28 +285,25 @@ class MCTSNode:
                 self._increase_visits()
                 self._update_action_value(result)
 
-                # Remove virtual loss
-                self._update_action_value({self.game_state.calculate_next_player(): 1})
-
                 return result
 
             # Expanding needs a lock
-            self.lock.acquire()
+            self.expand_lock.acquire()
             # We already expanded in another thread, simply re-run.
             if self.is_expanded():
-                self.lock.release()
+                self.expand_lock.release()
                 return self.run_simulation_step(nn_client)
 
             # We actually need to expand here, lets go
             next_states = self.game_state.get_next_possible_moves()
             if len(next_states) <= 0:
                 self.is_leave = True
-                self.lock.release()
+                self.expand_lock.release()
                 self._update_action_value(self.game_state.calculate_scores())
             else:
                 evaluation = nn_client.evaluate_game_state(self.game_state)
                 self._expand(evaluation, next_states)
-                self.lock.release()
+                self.expand_lock.release()
                 self._update_action_value(evaluation.expected_result)
 
             self._increase_visits()
@@ -358,13 +353,13 @@ class MCTSNode:
         return best_move
 
     def _update_action_value(self, new_action_value):
-        with self.lock:
+        with self.setter_lock:
             for player, value in new_action_value.items():
                 self.total_action_value[player] = self.total_action_value[player] + value
                 self.mean_action_value[player] = self.total_action_value[player] / max(self.visits, 1)
 
     def _increase_visits(self):
-        with self.lock:
+        with self.setter_lock:
             self.visits = self.visits + 1
 
     def is_expanded(self):
@@ -378,7 +373,7 @@ class MCTSExecutor:
     is to run a specific number of simulation steps starting at a given game state.
 
     It returns the target move probabilities and the target value of the given game sate."""
-    def __init__(self, game_state, nn_client: NeuralNetworkClient, root_node: MCTSNode=None, thread_pool=None):
+    def __init__(self, game_state, nn_client, root_node: MCTSNode=None, thread_pool=None):
         self.nn_client = nn_client
         self.start_game_state = game_state
         self.root_node = root_node
@@ -494,7 +489,7 @@ class TrainingExecutor:
 
     The training history size indicates how many of the last games to consider
     for training (e.g. use the 500 most recent games of training data)."""
-    def __init__(self, nn_client: NeuralNetworkClient, data_dir, training_history_size):
+    def __init__(self, nn_client, data_dir, training_history_size):
         super().__init__()
         self.nn_client = nn_client
         self.training_history_size = training_history_size
@@ -562,7 +557,7 @@ class TrainingExecutor:
 
 class ModelEvaluator:
     """Compares two neural network configurations by playing out a small tournament."""
-    def __init__(self, nn_client_one: NeuralNetworkClient, nn_client_two: NeuralNetworkClient, map_paths):
+    def __init__(self, nn_client_one, nn_client_two, map_paths):
         self.nn_client_one = nn_client_one
         self.nn_client_two = nn_client_two
         self.map_paths = map_paths

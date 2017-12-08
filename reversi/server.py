@@ -169,6 +169,6 @@ if __name__ == '__main__':
         basic_server.broadcast_message(network_core.MoveNotificationMessage(move.pos, move.choice, move.player))
 
     # Now give the AI some more time for a specific move
-    basic_server.send_player_message(Field.PLAYER_ONE, network_core.MoveRequestMessage(20_000, 0))
+    basic_server.send_player_message(Field.PLAYER_ONE, network_core.MoveRequestMessage(20000, 0))
 
     basic_server.stop()

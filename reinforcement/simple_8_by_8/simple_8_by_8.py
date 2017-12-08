@@ -1,5 +1,5 @@
-import pure_mcts_reinforcement.core as core
-import pure_mcts_reinforcement.distribution as distribution
+import reinforcement.core as core
+import reinforcement.distribution as distribution
 import tensorflow as tf
 import numpy as np
 from reversi.game_core import Field, Board, GameState

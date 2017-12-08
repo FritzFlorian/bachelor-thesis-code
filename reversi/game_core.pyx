@@ -1,8 +1,11 @@
+# cython: profile=True
 """ReversiXT Core Mechanics - Parse Board, Execute Move, Print Board"""
-from enum import Enum, IntEnum
 import io
 import reversi.copy as copy
 import itertools
+import numpy as np
+import cython
+
 
 class DisqualifiedError(Exception):
     """All 'known' client errors and timeouts lead to an disqualified exception for that player."""
@@ -289,20 +292,33 @@ class GameState:
         return -1.0
 
 
-class Board:
+cdef class Board:
     """The current assignment and shape of the game board.
 
     This class holds the current game board as well as transitions and
     various metadata about the game board.
     Does not hold information on the current state of individual players
     (e.g. disqualifications, bomb counts, next active player, ...)."""
+    cdef int [:, :] _board
+    cdef object _np_board
+
+    cdef public int n_players, n_overwrite
+    cdef public int n_bombs, s_bombs
+    cdef public int width, height
+    cdef public dict transitions
+
 
     def __init__(self, board_string):
         """Parses a map string into a Board.
 
         :param board_string: map encoded as a string
         """
+        # early return for pickling support
+        if not board_string:
+            return
+
         self._board = None
+        self._np_board = None
         self.transitions = dict()
 
         buf = io.StringIO(board_string)
@@ -318,15 +334,50 @@ class Board:
         self.read_board(buf)
         self.read_transitions(buf)
 
+    def get_raw_board(self):
+        return np.asarray(self._board)
+
+    def __reduce__(self):
+        state = (
+            self.n_players,
+            self.n_overwrite,
+            self.n_bombs,
+            self.s_bombs,
+            self.width,
+            self.height,
+            self._np_board.tobytes(),
+            self.transitions,
+        )
+
+        return Board, (None,), state
+
+    def __setstate__(self, state):
+        (
+            self.n_players,
+            self.n_overwrite,
+            self.n_bombs,
+            self.s_bombs,
+            self.width,
+            self.height,
+            board_bytes,
+            self.transitions,
+        ) = state
+
+        self._np_board = np.fromstring(board_bytes, dtype='i').reshape([self.height, self.width])
+        self._board = self._np_board
+
     def read_board(self, buf):
-        self._board = []
+        board = []
 
         for y in range(self.height):
             input_row = buf.readline().split()
             output_row = []
             for x in range(self.width):
                 output_row.append(FIELD_LOOKUP.index(input_row[x]) - 1)
-            self._board.append(output_row)
+            board.append(output_row)
+
+        self._np_board = np.asarray(board, dtype=np.dtype("i"))
+        self._board = self._np_board
 
     def read_transitions(self, buf):
         for transition in buf:
@@ -343,15 +394,20 @@ class Board:
             self.transitions[(end_pos, end_dir)] = (start_pos, Direction.mirror(start_dir))
 
     def execute_move(self, pos, player, use_overwrite=True):
-        if pos not in self:
+        cdef int cur_dir
+        cdef int cur_x, cur_y
+        cdef int dir
+
+        cur_x, cur_y = pos
+        if cur_x < 0 or cur_x >= self.width or cur_y < 0 or cur_y >= self.height:
             return 'error', None
 
         # Start with checks if the position is occupied
-        if self[pos] == Field.HOLE:
+        if self._board[cur_y][cur_x] == Field.HOLE:
             return 'error', None
 
         need_overwrite = False
-        if self[pos] in PLAYERS or self[pos] == Field.EXPANSION:
+        if self._board[cur_y][cur_x] in PLAYERS or self._board[cur_y][cur_x] == Field.EXPANSION:
             need_overwrite = True
 
         if need_overwrite and not use_overwrite:
@@ -365,8 +421,8 @@ class Board:
             cur_captured = []
             # Don't question this, it makes python way faster
             append = cur_captured.append
-            cur_pos, cur_dir = _next_pos(pos, dir)
 
+            cur_pos, cur_dir = _next_pos(pos, dir)
             while True:
                 cur_x, cur_y = cur_pos
                 if cur_x < 0 or cur_x >= self.width or cur_y < 0 or cur_y >= self.height:
@@ -479,11 +535,12 @@ class Board:
 
         return '\n'.join(str_list)
 
-    def __getitem__(self, key):
+    def __getitem__(self, tuple key):
         """Allows simple access to the fields of the board.
 
         Converts the internal int8 representation to the Field enums.
         This allows to work with the board at a high level, without knowing any implementation details."""
+        cdef int x, y
         x, y = key
         if x < 0 or x >= self.width:
             raise KeyError('x not in board bounds!')
@@ -492,11 +549,12 @@ class Board:
 
         return self._board[y][x]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, tuple key, int value):
         """Allows simple set operations on the board.
 
         Converts the Field enums to the internal int8 representation.
         This allows to work with the board at a high level, without knowing any implementation details."""
+        cdef int x, y
         x, y = key
         if x < 0 or x >= self.width:
             raise KeyError('x not in board bounds!')
@@ -505,7 +563,8 @@ class Board:
 
         self._board[y][x] = value
 
-    def __contains__(self, key):
+    def __contains__(self, tuple key):
+        cdef int x, y
         x, y = key
         if x < 0 or x >= self.width:
             return False

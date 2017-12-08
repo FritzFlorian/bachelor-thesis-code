@@ -1,6 +1,6 @@
 import unittest
 from reversi.game_core import Board, GameState, Field
-from pure_mcts_reinforcement.core import Evaluation
+from reinforcement.core import Evaluation
 
 
 class TestEvaluation(unittest.TestCase):
