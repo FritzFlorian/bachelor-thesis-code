@@ -1,5 +1,6 @@
 import tensorflow as tf
 import reinforcement.neural_network as neural_network
+import reinforcement.distributed_8_by_8.input_output_conversion as input_output_conversion
 
 
 BOARD_HEIGHT = 8
@@ -15,10 +16,10 @@ L2_LOSS_WEIGHT = 0.001
 
 class SimpleNeuralNetwork(neural_network.NeuralNetwork):
     def input_conversion_function(self):
-        return neural_network.simple_8_by_8_input
+        return input_output_conversion.input
 
     def output_conversion_function(self):
-        return neural_network.simple_8_by_8_output
+        return input_output_conversion.output
 
     def __init__(self):
         super().__init__()
