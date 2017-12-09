@@ -5,7 +5,7 @@ process from other processes (e.g. a pypy process).
 All communication with the NNServer is done using zeromq."""
 import pickle
 import multiprocessing
-import definitions
+import numpy as np
 import logging
 import importlib
 import zmq
@@ -65,7 +65,7 @@ class NeuralNetworkClient:
             inputs.append(input_array)
             targets.append(target_array)
 
-        return self.send_to_server(TrainingRequest(inputs, targets))
+        return self.send_to_server(TrainingRequest(np.asarray(inputs), np.asarray(targets)))
 
     def save_weights(self):
         """Saves the current weights to a binary of it's checkpoint."""

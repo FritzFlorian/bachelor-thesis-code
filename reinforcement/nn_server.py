@@ -50,7 +50,7 @@ class NeuralNetworkServer:
                             self._process_execution_request(response_ids, message_content, sess)
                         elif isinstance(message_content, nn_client.TrainingRequest):
                             self._process_training_request(response_ids, message_content, sess)
-                        elif isinstance(message_content, nn_client.SaveWeightsResponse):
+                        elif isinstance(message_content, nn_client.SaveWeightsRequest):
                             self._process_save_weights_request(response_ids, message_content, sess)
                         elif isinstance(message_content, nn_client.LoadWeightsRequest):
                             self._process_load_weights_request(response_ids, message_content, sess)

@@ -1,4 +1,4 @@
-from reversi.game_core import GameState, Field, Board
+from reversi.game_core import GameState, Field
 import reversi.network_core as network
 import reversi.tournament as tournament
 import reversi.copy as copy
@@ -11,6 +11,7 @@ import pickle
 import random
 import time
 import definitions
+import reinforcement.util as util
 
 
 class Evaluation:
@@ -490,9 +491,9 @@ class TrainingExecutor:
 
     The training history size indicates how many of the last games to consider
     for training (e.g. use the 500 most recent games of training data)."""
-    def __init__(self, nn_client, data_dir, training_history_size):
+    def __init__(self, nn_executor_client, data_dir, training_history_size):
         super().__init__()
-        self.nn_client = nn_client
+        self.nn_executor_client = nn_executor_client
         self.training_history_size = training_history_size
 
         # We will keep the training and test data in a local folder.
@@ -505,7 +506,7 @@ class TrainingExecutor:
 
         self.lock = threading.Lock()
         self._cache = dict()
-        self._current_number = 0
+        self._current_number = util.count_files(self.data_dir)
 
     def add_examples(self, evaluations):
         with self.lock:
@@ -523,7 +524,7 @@ class TrainingExecutor:
             evaluations = []
             while len(evaluations) < n_examples:
                 oldest_index = max(1, self._current_number - self.training_history_size)
-                number = random.randint(oldest_index, self._current_number + 1)
+                number = random.randint(oldest_index, self._current_number)
                 loaded_evaluations = self._cache.get(number, None)
 
                 if not loaded_evaluations:
@@ -531,26 +532,36 @@ class TrainingExecutor:
                         with open(os.path.join(self.data_dir, "{0:010d}.pickle".format(number)), 'rb') as file:
                             loaded_evaluations = pickle.load(file)
                     except IOError:
-                        break
+                        continue
 
                 # TODO: Better manage the cache
                 # FIXME: Delete old elements from cache
                 self._cache[number] = loaded_evaluations
 
                 random.shuffle(loaded_evaluations)
-                end_index = min(round(n_examples / 4 + 1), len(loaded_evaluations))
+                end_index = min(round(n_examples / 8 + 1), len(loaded_evaluations))
                 evaluations = evaluations + loaded_evaluations[:end_index]
 
             return evaluations
 
+    def load(self, filename):
+        with open(filename, 'rb') as file:
+            weights_zip_binary = file.read()
+            self.nn_executor_client.load_weights(weights_zip_binary)
+
     def save(self, filename):
-        weights_zip_binary = self.nn_client.save_weights()
+        weights_zip_binary = self.nn_executor_client.save_weights()
         with open(filename, 'wb') as file:
             file.write(weights_zip_binary)
 
     def run_training_batch(self, batch_size=32):
+        # Skip if there is no data
+        if self._current_number <= 0:
+            time.sleep(10)
+            return
+
         evaluations = self.get_examples(batch_size)
-        self.nn_client.execute_training_batch(evaluations)
+        self.nn_executor_client.execute_training_batch(evaluations)
 
     def log_loss(self, epoch, batch_size=32):
         raise NotImplementedError()

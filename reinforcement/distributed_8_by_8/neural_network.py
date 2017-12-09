@@ -125,13 +125,14 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             self.one_hot_x = \
                 tf.placeholder(FLOAT, shape=(None, BOARD_HEIGHT, BOARD_WIDTH, N_RAW_VALUES + 1), name='one_hot_x')
 
+            # Concat the expected outputs to one big array, as this is our raw input array
+            n_fields = BOARD_HEIGHT * BOARD_WIDTH
+            self.y_combined = tf.placeholder(FLOAT, shape=[None, n_fields+ 1], name='y_combined')
+
             # Outputs are the move probabilities for each field and a value estimation for player one.
             # (Note: this is intended to only support two players)
-            self.y_prob = tf.placeholder(FLOAT, shape=[None, BOARD_HEIGHT * BOARD_WIDTH], name='y_prob')
-            self.y_value = tf.placeholder(FLOAT, shape=[None, 1], name='y_value')
-
-            # Concat the outputs to one big array, as this is our raw input array
-            self.y_combined = tf.concat([self.y_prob, self.y_value], axis=1)
+            self.y_prob = tf.slice(self.y_combined, [0, 0], [-1,  n_fields])
+            self.y_value = tf.slice(self.y_combined, [0, n_fields - 1], [-1, 1])
 
     def _construct_conv_layer(self, input, n_filters, name, kernel=[3, 3], stride=1, normalization=True, activation=None):
         """Construct a convolutional layer with the given settings.
@@ -161,7 +162,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             return tf.nn.tanh(skip)
 
     def _construct_dense_layer(self, input, n_nodes, name, activation=None):
-        return tf.layers.dense(inputs=input, units=n_nodes, name=name, activation=activation,
+        return tf.layers.dense(input, n_nodes, name=name, activation=activation,
                                kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT))
 
     def log_loss(self, sess, tf_file_writer, input_arrays, target_arrays, epoch):

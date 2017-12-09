@@ -15,9 +15,9 @@ def save_neural_net_to_zip_binary(neural_network, session):
         neural_network.save_weights(session, checkpoint_file)
 
         # Pack it up to send it through the network
-        checkpoint_zip = os.path.join(base_dir, 'checkpoint.zip')
+        checkpoint_zip = os.path.join(base_dir, 'checkpoint')
         shutil.make_archive(checkpoint_zip, 'zip', checkpoint_dir)
-        with open(checkpoint_zip, 'rb') as file:
+        with open(checkpoint_zip + '.zip', 'rb') as file:
             return file.read()
 
 
@@ -37,3 +37,7 @@ def load_neural_net_from_zip_binary(zip_binary, neural_network, session):
             zip_ref.extractall(checkpoint_dir)
 
         neural_network.load_weights(session, checkpoint_file)
+
+
+def count_files(dir_path):
+    return len([name for name in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, name))])
