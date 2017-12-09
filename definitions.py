@@ -5,8 +5,8 @@ if os.name == 'Windows':
     EXEC_ENDING = '.exe'
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-PYPY_EXEC = os.path.join(ROOT_DIR, 'pypy-venv/bin/python{}'.format(EXEC_ENDING))
-CPYTHON_EXEC = os.path.join(ROOT_DIR, 'cpython-venv/bin/python{}'.format(EXEC_ENDING))
 
+AI_TRIVIAL_PATH = os.path.join(ROOT_DIR, 'bin/ai_trivial{}'.format(EXEC_ENDING))
 
 SELFPLAY_NN_SERVER_PORT = 5100
+SELFEVAL_NN_SERVER_PORT = 5101

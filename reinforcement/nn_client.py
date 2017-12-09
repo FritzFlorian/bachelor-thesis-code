@@ -130,16 +130,10 @@ def start_nn_server(port, nn_class_name, nn_init_args=(), batch_size=32):
     The nn_class_name must be the fully qualified name of the neural network class.
     This method can be used from any python interpreter, for example also from
     the pypy interpreter, as all tensorflow components are loaded in the new process."""
-    # Our NN has to run on cpython, as tensorflow is only compatible with it
-    # multiprocessing.set_start_method('spawn', True)
-    # multiprocessing.set_executable(definitions.CPYTHON_EXEC)
-
     logging.info('Starting NN Server on port {}.'.format(port))
     p = multiprocessing.Process(target=_start_nn_server_internal,
                                 args=(port, nn_class_name, batch_size, nn_init_args))
     p.start()
-    #
-    # multiprocessing.set_executable(definitions.PYPY_EXEC)
     return p
 
 

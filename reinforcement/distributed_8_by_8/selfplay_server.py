@@ -15,7 +15,7 @@ def main():
     thread = threading.Thread(target=test_client)
     thread.start()
 
-    selfplay_server = distribution.SelfplayServer('tcp://localhost:5101')
+    selfplay_server = distribution.PlayingSlave('tcp://localhost:5200')
     selfplay_server.run()
 
 
@@ -23,7 +23,7 @@ def test_client():
     # Counterpart for testing
     context = zmq.Context()
     server = context.socket(zmq.REP)
-    server.bind('tcp://*:5101')
+    server.bind('tcp://*:5200')
 
     with open('simple_8_by_8.map') as file:
         board = Board(file.read())
@@ -33,8 +33,8 @@ def test_client():
 
     while True:
         req = server.recv_pyobj()
-        print('recv {} evaluations...'.format(len(req.last_evaluations)))
-        server.send_pyobj(distribution.SelfplayServer.WorkResponse(7, 'reinforcement.distributed_8_by_8.neural_network.SimpleNeuralNetwork', None, [board], 128))
+        print('recv {}...'.format(req.work_result))
+        server.send_pyobj(distribution.PlayingSlave.SelfEvaluationWorkResponse(7, 'reinforcement.distributed_8_by_8.neural_network.SimpleNeuralNetwork', None, None, [board], 128, 0))
 
 
 if __name__ == '__main__':

@@ -10,6 +10,7 @@ import concurrent.futures
 import pickle
 import random
 import time
+import definitions
 
 
 class Evaluation:
@@ -557,31 +558,14 @@ class TrainingExecutor:
 
 class ModelEvaluator:
     """Compares two neural network configurations by playing out a small tournament."""
-    def __init__(self, nn_client_one, nn_client_two, map_paths):
+    def __init__(self, nn_client_one, nn_client_two):
         self.nn_client_one = nn_client_one
         self.nn_client_two = nn_client_two
-        self.map_paths = map_paths
-        self.thread_pool = None
 
-    def run(self, n_games, n_simulations):
-        self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
-        total_scores = [0, 0]
+    def run(self, start_game_state, n_simulations):
+        thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
-        for i in range(n_games):
-            map_path = np.random.choice(self.map_paths)
-            scores = self._play_game(map_path, n_simulations)
-
-            # TODO: Make universal for more then two players
-            for j in range(2):
-                total_scores[j] = total_scores[j] + scores[j]
-
-        self.thread_pool.shutdown(wait=False)
-        return total_scores
-
-    def _play_game(self, map_path, n_simulations):
-        with open(map_path, 'r') as file:
-            board = Board(file.read())
-        current_game_state = GameState(board)
+        current_game_state = start_game_state
 
         # TODO: Make universal for more then two players
         tmp = [Field.PLAYER_ONE, Field.PLAYER_TWO]
@@ -601,7 +585,7 @@ class ModelEvaluator:
                 nn_client = self.nn_client_two
 
             # Run the actual simulation to find a move
-            mcts_executor = MCTSExecutor(current_game_state, nn_client)
+            mcts_executor = MCTSExecutor(current_game_state, nn_client, thread_pool=thread_pool)
             mcts_executor.run(n_simulations)
 
             # Find the best move
@@ -625,43 +609,19 @@ class ModelEvaluator:
         result[player_mapping[Field.PLAYER_ONE]] = scores[Field.PLAYER_ONE]
         result[player_mapping[Field.PLAYER_TWO]] = scores[Field.PLAYER_TWO]
 
+        thread_pool.shutdown(wait=False)
         return result
 
 
 class AITrivialEvaluator:
     """Compares a neural network to ai trivial by playing out a small tournament."""
-    def __init__(self, nn_client, map_paths):
+    def __init__(self, nn_client):
         self.nn_client = nn_client
-        self.map_paths = map_paths
 
-    def run(self, n_games, time):
-        total_scores = [0, 0]
-        total_stones = [0, 0]
-        threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    def run(self, start_game_state, turn_time):
+        thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
-        i = 0
-        while i < n_games:
-            map_path = np.random.choice(self.map_paths)
-            try:
-                scores, stones = self._play_game(map_path, time, threadpool)
-
-                # TODO: Make universal for more then two players
-                for j in range(2):
-                    total_scores[j] = total_scores[j] + scores[j]
-                    total_stones[j] = total_stones[j] + stones[j]
-
-                i = i + 1
-            except IOError:
-                # TODO: Handle Ports Properly
-                print('Port Conflict...')
-
-        threadpool.shutdown(False)
-        return total_scores, total_stones
-
-    def _play_game(self, map_path, turn_time, thread_pool):
-        with open(map_path, 'r') as file:
-            board = Board(file.read())
-        current_game_state = GameState(board)
+        current_game_state = start_game_state
 
         # TODO: Make universal for more then two players
         tmp = [Field.PLAYER_ONE, Field.PLAYER_TWO]
@@ -671,9 +631,9 @@ class AITrivialEvaluator:
 
         # TODO: Handle Ports Properly
         port = random.randint(2000, 4000)
-        server = network.BasicServer(board, port)
+        server = network.BasicServer(start_game_state.board, port)
         server.start()
-        tournament.TrivialAIClient('./ai_trivial').start('localhost', port)
+        tournament.TrivialAIClient(definitions.AI_TRIVIAL_PATH).start('localhost', port)
         group = server.accept_client()
         server.set_player_for_group(group, tmp[1])
 
@@ -723,4 +683,6 @@ class AITrivialEvaluator:
         stones[player_mapping[Field.PLAYER_ONE]] = current_game_state.board.count({Field.PLAYER_ONE})[Field.PLAYER_ONE]
         stones[player_mapping[Field.PLAYER_TWO]] = current_game_state.board.count({Field.PLAYER_TWO})[Field.PLAYER_TWO]
 
+
+        thread_pool.shutdown(False)
         return result, stones
