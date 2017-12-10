@@ -39,8 +39,8 @@ class NeuralNetworkServer:
         # Setup a tensorflow session to be used for the whole run.
         self.graph = tf.Graph()
         with self.graph.as_default():
-            self.neural_network.construct_network()
             with tf.Session() as sess:
+                self.neural_network.construct_network(sess, self.graph)
                 self.neural_network.init_network()
 
                 while not self.stopped:

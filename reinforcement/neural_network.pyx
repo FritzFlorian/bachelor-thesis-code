@@ -13,7 +13,7 @@ class NeuralNetwork:
 
     The network is not responsible for managing its scope/tensorflow graph, this should be done
     by the code that uses and executes it."""
-    def construct_network(self):
+    def construct_network(self, sess, graph):
         raise NotImplementedError("Add the construction of your custom graph structure.")
 
     def init_network(self):

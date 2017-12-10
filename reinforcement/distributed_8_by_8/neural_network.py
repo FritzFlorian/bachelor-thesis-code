@@ -23,20 +23,24 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
 
     def __init__(self):
         super().__init__()
+        self.n_conv_filetrs = 32
 
-    def construct_network(self):
+    def construct_network(self, sess, graph):
         self._construct_inputs()
 
-        with tf.name_scope('Convolutional-Layers'):
-            conv1 = self._construct_conv_layer(self.one_hot_x, 32, 'cov1', activation=tf.nn.tanh)
-            res1 = self._construct_residual_block(conv1, 32, 'res1')
-            res2 = self._construct_residual_block(res1, 32, 'res2')
-            res3 = self._construct_residual_block(res2, 32, 'res3')
-            res4 = self._construct_residual_block(res3, 32, 'res4')
-            res5 = self._construct_residual_block(res4, 32, 'res5')
-            res6 = self._construct_residual_block(res5, 32, 'res6')
+        with tf.variable_scope('Convolutional-Layers'):
+            conv1 = self._construct_conv_layer(self.one_hot_x, self.n_conv_filetrs, 'cov1', activation=tf.nn.tanh)
+            self.conv1_kernel = [v for v in tf.trainable_variables()
+                                 if v.name == "Convolutional-Layers/cov1/conv2d/kernel:0"][0]
 
-        with tf.name_scope('Probability-Head'):
+            res1 = self._construct_residual_block(conv1, self.n_conv_filetrs, 'res1')
+            res2 = self._construct_residual_block(res1, self.n_conv_filetrs, 'res2')
+            res3 = self._construct_residual_block(res2, self.n_conv_filetrs, 'res3')
+            res4 = self._construct_residual_block(res3, self.n_conv_filetrs, 'res4')
+            res5 = self._construct_residual_block(res4, self.n_conv_filetrs, 'res5')
+            res6 = self._construct_residual_block(res5, self.n_conv_filetrs, 'res6')
+
+        with tf.variable_scope('Probability-Head'):
             n_filters = 2
 
             # Reduce the big amount of convolutional filters to a reasonable size.
@@ -54,7 +58,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             # So we need to apply softmax to the output.
             self.out_prob = tf.nn.softmax(self.out_prob_logits)
 
-        with tf.name_scope('Value-Head'):
+        with tf.variable_scope('Value-Head'):
             # Reduce the big amount of convolutional filters to a reasonable size.
             value_conv = self._construct_conv_layer(res6, 1, 'value_conv', kernel=[1, 1], stride=1)
             # Flattern the output tensor to allow it as input to a fully connected layer.
@@ -69,11 +73,11 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             # Than will give us a value between -1 and 1 as we need it
             self.out_value = tf.nn.tanh(value_scalar)
 
-        with tf.name_scope('Final-Output'):
+        with tf.variable_scope('Final-Output'):
             # Combine the output as this is needed to fulfill our internal raw data representation
             self.out_combined = tf.concat([self.out_prob, self.out_value], axis=1)
 
-        with tf.name_scope('Losses'):
+        with tf.variable_scope('Losses'):
             # Value loss is measured in mean square error.
             # Our values are in [-1, 1], so a MSE of 1 would mean that our network simply always outputs the
             # mean of our values. Everything below 1 would be at least a little bit better than guessing.
@@ -93,12 +97,12 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             # The summ of all three are our total loss
             self.loss = tf.add_n([self.prob_loss, self.value_loss, self.reg_loss], name="loss")
 
-        with tf.name_scope('Training'):
+        with tf.variable_scope('Training'):
             # Use a simpler optimizer to avoid issues because of it
             optimizer = tf.train.MomentumOptimizer(0.001, 0.9)
             self.training_op = optimizer.minimize(self.loss)
 
-        with tf.name_scope('Logging'):
+        with tf.variable_scope('Logging'):
             self.saver = tf.train.Saver()
             self.init = tf.global_variables_initializer()
 
@@ -108,8 +112,16 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             self.prob_loss_summary = tf.summary.scalar('prob loss', self.prob_loss)
             self.reg_loss_summary = tf.summary.scalar('reg loss', self.reg_loss)
 
+            self.conv1_kernel_summaries = []
+            for filter_number in range(self.n_conv_filetrs):
+                for image_number in range(N_RAW_VALUES + 1):
+                    image = tf.slice(self.conv1_kernel, [0, 0, image_number, filter_number], [3, 3, 1, 1])
+                    transposed_image = tf.transpose(image, [3, 0, 1, 2])
+                    image_summary = tf.summary.image('conv1-filter-{}-kernel-{}'.format(filter_number, image_number), transposed_image)
+                    self.conv1_kernel_summaries.append(image_summary)
+
     def _construct_inputs(self):
-        with tf.name_scope("inputs"):
+        with tf.variable_scope("inputs"):
             # Toggle Flag to enable/disable stuff during training
             self.training = tf.placeholder_with_default(False, shape=(), name='training')
             # Variable to set the 'raw' board input.
@@ -138,7 +150,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
         """Construct a convolutional layer with the given settings.
 
         Kernel, stride and a optional normalization layer can be configured."""
-        with tf.name_scope(name):
+        with tf.variable_scope(name):
             conv = tf.layers.conv2d(
                 inputs=input,
                 filters=n_filters,
@@ -153,7 +165,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             return tf.layers.batch_normalization(conv, training=self.training)
 
     def _construct_residual_block(self, input, n_filters, name):
-        with tf.name_scope(name):
+        with tf.variable_scope(name):
             conv1 = self._construct_conv_layer(input, n_filters, 'conv1')
             conv1_relu = tf.nn.tanh(conv1)
             conv2 = self._construct_conv_layer(conv1_relu, n_filters, 'conv2')
@@ -180,6 +192,9 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
         tf_file_writer.add_summary(reg_log_summary_str, training_batch)
         tf_file_writer.add_summary(value_log_summary_str, training_batch)
         tf_file_writer.add_summary(prob_log_summary_str, training_batch)
+
+        for image_summary in self.conv1_kernel_summaries:
+            tf_file_writer.add_summary(image_summary.eval())
 
         return loss
 
