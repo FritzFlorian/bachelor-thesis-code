@@ -342,9 +342,9 @@ class TrainingMaster:
         self.simulations_per_turn = 128
         self.turn_time = 1.0
 
-        self.n_training_batches = 1000
+        self.n_training_batches = 7500
         self.n_self_eval = 21
-        self.n_ai_eval = 21
+        self.n_ai_eval = 7
 
         self.needed_avg_score = 0.05
 
@@ -432,6 +432,7 @@ class TrainingMaster:
         with self.training_progress_lock:
             self.training_remaining -= n_batches
             if self.training_remaining <= 0 and self.state == self.State.SELFPLAY:
+                self.epoch += 1
                 self.current_weights_binary = self.nn_client.save_weights()
                 checkpoint_name = 'checkpoint-{0:05d}.zip'.format(self.epoch)
                 with open(os.path.join(self.weights_dir, checkpoint_name), 'wb') as file:
@@ -439,7 +440,6 @@ class TrainingMaster:
 
                 self.self_eval_remaining = self.n_self_eval
                 self.state = self.State.SELFEVAL
-                self.epoch += 1
                 logging.info('Progressing to Epoch {}. Starting Self- and AI-Evaluation...'.format(self.epoch))
 
     def _handle_messages(self):
@@ -485,10 +485,6 @@ class TrainingMaster:
             self.server.send_pyobj(
                 PlayingSlave.AIEvaluationWorkResponse(n_games, nn_name, self.best_weights_binary, board_states,
                                                       turn_time, epoch))
-            self.ai_eval_remaining -= n_games
-            if self.ai_eval_remaining <= 0:
-                self.training_remaining = self.n_training_batches
-                self.state = self.State.SELFPLAY
 
     def _handle_selfplay_result(self, work_result):
         for evaluations in work_result.evaluation_lists:
@@ -513,9 +509,15 @@ class TrainingMaster:
                 logging.info('Choosing old weights, as the new ones where not better.')
 
             self.self_eval_scores = [0, 0]
+            self.n_self_eval_games = 0
             self.self_eval_remaining = self.n_self_eval
             self.ai_eval_remaining = self.n_ai_eval
             self.state = self.State.AIEVAL
 
     def _handle_aieval_result(self, work_result):
         print('got ai eval results... TODO: process them')
+        self.ai_eval_remaining -= work_result.n_games
+        if self.ai_eval_remaining <= 0:
+            logging.info('Continue with next epoch...')
+            self.training_remaining = self.n_training_batches
+            self.state = self.State.SELFPLAY
