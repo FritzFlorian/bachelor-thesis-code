@@ -37,6 +37,6 @@ class NeuralNetwork:
     def load_weights(self, sess, filename):
         raise NotImplementedError("Add implementation that loads the weights of this network to a checkpoint.")
 
-    def log_loss(self, sess, tf_file_writer, input_arrays, target_arrays, epoch):
-        raise NotImplementedError("Add implementation to write average losses to the stats file and return them.")
+    def log_training_progress(self, sess, tf_file_writer, input_arrays, target_arrays, training_batch):
+        raise NotImplementedError("Add implementation to write stats on the current training progress.")
 

@@ -9,6 +9,7 @@ import time
 import pickle
 import reinforcement.nn_client as nn_client
 import reinforcement.util as util
+import os
 
 
 class NeuralNetworkServer:
@@ -22,6 +23,12 @@ class NeuralNetworkServer:
         self.execution_responses = []
         self.batch_size = batch_size
 
+        self.log_dir = os.path.join(os.path.curdir, 'nn_logs/{}-{}'.format(port, round(time.time() * 1000)))
+        self.n_batches_for_log = 50
+        self.current_training_batch = 0
+        self.log_file_writer = None
+        self.graph = None
+
     def run(self):
         # Init network code. Router is used because we want to synchronize
         # all request in in a request-reply fashion.
@@ -30,8 +37,8 @@ class NeuralNetworkServer:
         self.socket.bind('tcp://*:{}'.format(self.port))
 
         # Setup a tensorflow session to be used for the whole run.
-        graph = tf.Graph()
-        with graph.as_default():
+        self.graph = tf.Graph()
+        with self.graph.as_default():
             self.neural_network.construct_network()
             with tf.Session() as sess:
                 self.neural_network.init_network()
@@ -66,6 +73,7 @@ class NeuralNetworkServer:
                         else:
                             # Don't  busy wait all the time
                             time.sleep(0.01)
+            self.log_file_writer.close()
 
         self.socket.close()
         context.term()
@@ -88,7 +96,18 @@ class NeuralNetworkServer:
         self.execution_responses = []
 
     def _process_training_request(self, response_ids, message_content, sess):
+        if not self.log_file_writer:
+            self.log_file_writer = tf.summary.FileWriter(self.log_dir, self.graph)
+
+        if self.current_training_batch % self.n_batches_for_log == 0:
+            # It's not smart to test with the training data.
+            # But as we do not really have a test set here and we
+            # will only train on this exact data after the summary data it seems 'ok' to do for now.
+            self.neural_network.log_training_progress(sess, self.log_file_writer, message_content.input_arrays,
+                                                      message_content.target_arrays, self.current_training_batch)
+
         self.neural_network.train_batch(sess, message_content.input_arrays, message_content.target_arrays)
+        self.current_training_batch += 1
 
         response = nn_client.Response(response_ids)
         self.socket.send_multipart(response.to_multipart())

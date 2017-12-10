@@ -132,7 +132,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             # Outputs are the move probabilities for each field and a value estimation for player one.
             # (Note: this is intended to only support two players)
             self.y_prob = tf.slice(self.y_combined, [0, 0], [-1,  n_fields])
-            self.y_value = tf.slice(self.y_combined, [0, n_fields - 1], [-1, 1])
+            self.y_value = tf.slice(self.y_combined, [0, n_fields], [-1, 1])
 
     def _construct_conv_layer(self, input, n_filters, name, kernel=[3, 3], stride=1, normalization=True, activation=None):
         """Construct a convolutional layer with the given settings.
@@ -165,7 +165,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
         return tf.layers.dense(input, n_nodes, name=name, activation=activation,
                                kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT))
 
-    def log_loss(self, sess, tf_file_writer, input_arrays, target_arrays, epoch):
+    def log_training_progress(self, sess, tf_file_writer, input_arrays, target_arrays, training_batch):
         # Get all the losses
         prob_loss, value_loss, reg_loss, loss =\
             sess.run([self.prob_loss, self.value_loss, self.reg_loss, self.loss],
@@ -176,10 +176,10 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
         prob_log_summary_str = self.prob_loss_summary.eval(feed_dict={self.prob_loss: prob_loss})
         log_summary_str = self.loss_summary.eval(feed_dict={self.loss: loss})
 
-        tf_file_writer.add_summary(log_summary_str, epoch)
-        tf_file_writer.add_summary(reg_log_summary_str, epoch)
-        tf_file_writer.add_summary(value_log_summary_str, epoch)
-        tf_file_writer.add_summary(prob_log_summary_str, epoch)
+        tf_file_writer.add_summary(log_summary_str, training_batch)
+        tf_file_writer.add_summary(reg_log_summary_str, training_batch)
+        tf_file_writer.add_summary(value_log_summary_str, training_batch)
+        tf_file_writer.add_summary(prob_log_summary_str, training_batch)
 
         return loss
 
