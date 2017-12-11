@@ -3,12 +3,13 @@ import reinforcement.neural_network as neural_network
 import reinforcement.distributed_8_by_8.input_output_conversion as input_output_conversion
 
 
-BOARD_HEIGHT = 8
-BOARD_WIDTH = 8
+BOARD_SIZE = 12
+BOARD_HEIGHT = BOARD_SIZE
+BOARD_WIDTH = BOARD_SIZE
 
 # Number of different possible states/contents of a
 # single field on the board.
-N_RAW_VALUES = 3
+N_RAW_VALUES = 4
 FLOAT = tf.float32
 
 L2_LOSS_WEIGHT = 0.001
@@ -59,10 +60,12 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             self.out_prob = tf.nn.softmax(self.out_prob_logits)
 
         with tf.variable_scope('Value-Head'):
+            n_filters = 1
+
             # Reduce the big amount of convolutional filters to a reasonable size.
-            value_conv = self._construct_conv_layer(res6, 1, 'value_conv', kernel=[1, 1], stride=1)
+            value_conv = self._construct_conv_layer(res6, n_filters, 'value_conv', kernel=[1, 1], stride=1)
             # Flattern the output tensor to allow it as input to a fully connected layer.
-            flattered_value_conv = tf.reshape(value_conv, [-1, 1 * BOARD_WIDTH * BOARD_HEIGHT])
+            flattered_value_conv = tf.reshape(value_conv, [-1, n_filters * BOARD_WIDTH * BOARD_HEIGHT])
             # Add a fully connected hidden layer.
             value_hidden = self._construct_dense_layer(flattered_value_conv, BOARD_WIDTH * BOARD_HEIGHT, 'value_hidden',
                                                        activation=tf.nn.tanh)
@@ -114,7 +117,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
 
             self.conv1_kernel_summaries = []
             for filter_number in range(self.n_conv_filetrs):
-                for image_number in range(N_RAW_VALUES + 1):
+                for image_number in range(N_RAW_VALUES):
                     image = tf.slice(self.conv1_kernel, [0, 0, image_number, filter_number], [3, 3, 1, 1])
                     transposed_image = tf.transpose(image, [3, 0, 1, 2])
                     image_summary = tf.summary.image('conv1-filter-{}-kernel-{}'.format(filter_number, image_number), transposed_image)
@@ -124,22 +127,14 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
         with tf.variable_scope("inputs"):
             # Toggle Flag to enable/disable stuff during training
             self.training = tf.placeholder_with_default(False, shape=(), name='training')
-            # Variable to set the 'raw' board input.
-            # This means an tensor with shape [batch_size, height, width]
-            # where each element is coded as an integer between 0 and N_RAW_VALUES.
-            # NOTE: We will not use this for now, as we plan to also pass in the possible
-            #       moves directly in the one hot encoded input.
-            # self.raw_x = tf.placeholder(tf.uint8, shape=(None, BOARD_HEIGHT, BOARD_WIDTH), name='raw_x')
 
             # Board will be one hot encoded.
-            # Each convolutional input dimension represents one possible stone on a field.
-            # self.one_hot_x = tf.one_hot(self.raw_x, N_RAW_VALUES + 1, name='one_hot_x')
             self.one_hot_x = \
-                tf.placeholder(FLOAT, shape=(None, BOARD_HEIGHT, BOARD_WIDTH, N_RAW_VALUES + 1), name='one_hot_x')
+                tf.placeholder(FLOAT, shape=(None, BOARD_HEIGHT, BOARD_WIDTH, N_RAW_VALUES), name='one_hot_x')
 
             # Concat the expected outputs to one big array, as this is our raw input array
             n_fields = BOARD_HEIGHT * BOARD_WIDTH
-            self.y_combined = tf.placeholder(FLOAT, shape=[None, n_fields+ 1], name='y_combined')
+            self.y_combined = tf.placeholder(FLOAT, shape=[None, n_fields + 1], name='y_combined')
 
             # Outputs are the move probabilities for each field and a value estimation for player one.
             # (Note: this is intended to only support two players)

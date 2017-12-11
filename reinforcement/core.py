@@ -44,6 +44,11 @@ class Evaluation:
         # TODO: write about dihedral groups in the thesis
         self._applied_transformations = []
 
+        # Used to embedded smaller boards in big neural networks.
+        # The top left position of where the board was inserted
+        # has to be stored to reconstruct the outputs after the run.
+        self.embedding_position = (0, 0)
+
     def convert_to_normal(self):
         """Converts the evaluation to a form where the next active player is player one.
 

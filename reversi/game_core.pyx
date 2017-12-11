@@ -575,8 +575,8 @@ cdef class Board:
 
 
 class Field:
-    HOLE = -1
-    EMPTY = 0
+    EMPTY = -1
+    HOLE = 0
 
     PLAYER_ONE = 1
     PLAYER_TWO = 2
@@ -644,4 +644,4 @@ MOVEMENT = {
 
 DIRECTIONS = (Direction.TOP, Direction.TOP_RIGHT, Direction.RIGHT, Direction.BOTTOM_RIGHT, Direction.BOTTOM,
               Direction.BOTTOM_LEFT, Direction.LEFT, Direction.TOP_LEFT)
-FIELD_LOOKUP = ('-', '0', '1', '2', '3', '4', '5', '6', '7', '8', 'i', 'c', 'x', 'b')
+FIELD_LOOKUP = ('0', '-', '1', '2', '3', '4', '5', '6', '7', '8', 'i', 'c', 'x', 'b')
