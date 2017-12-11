@@ -12,6 +12,7 @@ import enum
 import os
 import threading
 import reinforcement.util as util
+import json
 
 
 class PlayingSlave:
@@ -353,9 +354,9 @@ class TrainingMaster:
         self.simulations_per_turn = 128
         self.turn_time = 1.0
 
-        self.n_training_batches = 7500
+        self.n_training_batches = 10000
         self.n_self_eval = 21
-        self.n_ai_eval = 7
+        self.n_ai_eval = 14
 
         self.needed_avg_score = 0.05
 
@@ -369,9 +370,6 @@ class TrainingMaster:
         self.self_eval_scores = [0, 0]
         self.n_self_eval_games = 0
 
-        self.ai_eval_scores = [0, 0]
-        self.ai_eval_stones = [0, 0]
-
         # weights cache
         self.current_weights_binary = None
         self.best_weights_binary = None
@@ -382,7 +380,12 @@ class TrainingMaster:
         self.training_thread_two = None
         self.training_progress_lock = threading.Lock()
 
+        # keep some stats
+        self.statistic_manager = StatisticManager(os.path.join(work_dir, 'stats.json'))
+
     def run(self):
+        self._init_stats()
+
         self.context = zmq.Context()
         self.server = self.context.socket(zmq.REP)
         self.server.bind('tcp://*:{}'.format(self.port))
@@ -402,6 +405,13 @@ class TrainingMaster:
             self.nn_client.stop()
             self.server.close()
             self.context.term()
+
+    def _init_stats(self):
+        self.statistic_manager.general_stats['batch_size'] = self.batch_size
+        self.statistic_manager.general_stats['training_history_size'] = self.training_history_size
+        self.statistic_manager.general_stats['simulations_per_turn'] = self.simulations_per_turn
+        self.statistic_manager.general_stats['turn_time'] = self.turn_time
+        self.statistic_manager.general_stats['n_training_batches'] = self.n_training_batches
 
     def _setup_nn(self):
         nn_client.start_nn_server(definitions.TRAINING_NN_SERVER_PORT, self.nn_name)
@@ -441,6 +451,10 @@ class TrainingMaster:
 
     def _add_training_progress(self, n_batches):
         with self.training_progress_lock:
+            self.statistic_manager.general_stats['current-batch'] += 1
+            if self.statistic_manager.general_stats['current-batch'] % 500 == 0:
+                self.statistic_manager.save_stats()
+
             self.training_remaining -= n_batches
             if self.training_remaining <= 0 and self.state == self.State.SELFPLAY:
                 self.epoch += 1
@@ -452,6 +466,10 @@ class TrainingMaster:
                 self.self_eval_remaining = self.n_self_eval
                 self.state = self.State.SELFEVAL
                 logging.info('Progressing to Epoch {}. Starting Self- and AI-Evaluation...'.format(self.epoch))
+
+                self.statistic_manager.epochs[self.epoch - 1] = {
+                    'start-self-eval-batch': self.statistic_manager.general_stats['current-batch']
+                }
 
     def _handle_messages(self):
         while True:
@@ -502,11 +520,11 @@ class TrainingMaster:
             self.training_executor.add_examples(evaluations)
 
     def _handle_selfeval_result(self, work_result):
-        self.self_eval_remaining -= work_result.n_games
         if self.state == self.State.SELFEVAL:
             self.self_eval_scores[0] += work_result.nn_one_score
             self.self_eval_scores[1] += work_result.nn_two_score
             self.n_self_eval_games += work_result.n_games
+            self.self_eval_remaining -= work_result.n_games
 
         if self.self_eval_remaining <= 0:
             logging.info('Finishing selfplay with result {} vs. {}'
@@ -519,16 +537,65 @@ class TrainingMaster:
             else:
                 logging.info('Choosing old weights, as the new ones where not better.')
 
+            self._write_self_eval_stats()
+
             self.self_eval_scores = [0, 0]
             self.n_self_eval_games = 0
             self.self_eval_remaining = self.n_self_eval
             self.ai_eval_remaining = self.n_ai_eval
             self.state = self.State.AIEVAL
 
+    def _write_self_eval_stats(self):
+        self.statistic_manager.epochs[self.epoch - 1]['start-ai-eval'] = \
+            self.statistic_manager.general_stats['current-batch']
+        self.statistic_manager.epochs[self.epoch - 1]['n-selfeval'] = self.n_self_eval_games
+        self.statistic_manager.epochs[self.epoch - 1]['new-selfeval-score'] = self.self_eval_scores[0]
+        self.statistic_manager.epochs[self.epoch - 1]['old-selfeval-score'] = self.self_eval_scores[1]
+
     def _handle_aieval_result(self, work_result):
-        print('got ai eval results... TODO: process them')
+        self._add_aieval_result_stats(work_result)
+
         self.ai_eval_remaining -= work_result.n_games
         if self.ai_eval_remaining <= 0:
+            self._add_aieval_end_stats()
+
             logging.info('Continue with next epoch...')
             self.training_remaining = self.n_training_batches
             self.state = self.State.SELFPLAY
+
+    def _add_aieval_end_stats(self):
+        self.statistic_manager.epochs[self.epoch - 1]['end-ai-eval'] = \
+            self.statistic_manager.general_stats['current-batch']
+
+    def _add_aieval_result_stats(self, work_result):
+        cur_epoch = self.statistic_manager.epochs[self.epoch - 1]
+
+        cur_epoch['ai-score'] = work_result.ai_score + cur_epoch.get('ai-score', 0)
+        cur_epoch['nn-score'] = work_result.nn_score + cur_epoch.get('nn-score', 0)
+        cur_epoch['ai-stones'] = work_result.ai_stones + cur_epoch.get('ai-stones', 0)
+        cur_epoch['nn-stones'] = work_result.nn_stones + cur_epoch.get('nn-stones', 0)
+        cur_epoch['n-aieval'] = work_result.n_games + cur_epoch.get('n-aieval', 0)
+
+class StatisticManager:
+    def __init__(self, stats_file_name):
+        self.stats_file_name = stats_file_name
+
+        self.epochs = []
+        self.general_stats = {
+            'current-batch': 0
+        }
+
+    def save_stats(self):
+        with open(self.stats_file_name, 'w') as stats_file:
+            output_json = {
+                'general': self.general_stats,
+                'epochs': self.epochs
+            }
+            stats_file.write(json.dumps(output_json, indent=4, sort_keys=True))
+
+    def load_stats(self):
+        if os.path.isfile(self.stats_file_name):
+            with open(self.stats_file_name, 'r') as stats_file:
+                input_json = json.loads(stats_file.read())
+                self.epochs = input_json['epochs']
+                self.general_stats = input_json['general']
