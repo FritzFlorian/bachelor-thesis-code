@@ -94,11 +94,13 @@ class PlayingSlave:
 
         self.context = None
         self.zmq_client = None
+        self.poll = None
 
         self.process_pool = multiprocessing.Pool(multiprocessing.cpu_count() - 1)
 
     def run(self):
         self.context = zmq.Context()
+        self.poll = zmq.Poller()
 
         try:
             self._handle_connections()
@@ -118,17 +120,22 @@ class PlayingSlave:
 
             try:
                 logging.info('Sending work request to master server...')
-                self.zmq_client.send_pyobj(self.WorkRequest(last_work_result))
-                response = self.zmq_client.recv(self.TIMEOUT)
-                if response:
-                    last_work_result = self._handle_response(response)
+                self.zmq_client.send_pyobj(self.WorkRequest(last_work_result), flags=zmq.NOBLOCK)
+
+                socks = dict(self.poll.poll(round(self.TIMEOUT * 1000)))
+                if socks.get(self.zmq_client) == zmq.POLLIN:
+                    response = self.zmq_client.recv()
+                    if response:
+                        last_work_result = self._handle_response(response)
+                    else:
+                        raise zmq.ZMQError()
                 else:
                     raise zmq.ZMQError()
             except zmq.ZMQError:
                 last_work_result = self.EmptyWorkResult()
                 self._disconnect_client()
-                logging.info('Server connection closed. Waiting 10 seconds, then reconnect...')
-                time.sleep(10)
+                logging.info('Server connection closed. Waiting {} seconds, then reconnect...'.format(self.TIMEOUT))
+                time.sleep(self.TIMEOUT)
 
     def _handle_response(self, response):
         message = pickle.loads(response)
@@ -296,10 +303,14 @@ class PlayingSlave:
             self.zmq_client = self.context.socket(zmq.REQ)
             self.zmq_client.connect(self.master_address)
 
+            self.poll.register(self.zmq_client, zmq.POLLIN)
+
     def _disconnect_client(self):
         if self.zmq_client:
             self.zmq_client.setsockopt(zmq.LINGER, 0)
             self.zmq_client.close()
+            self.poll.unregister(self.zmq_client)
+            self.zmq_client = None
 
 
 class TrainingMaster:
