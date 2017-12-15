@@ -407,6 +407,7 @@ class TrainingMaster:
             self.context.term()
 
     def _init_stats(self):
+        self.statistic_manager.load_stats()
         self.statistic_manager.general_stats['batch_size'] = self.batch_size
         self.statistic_manager.general_stats['training_history_size'] = self.training_history_size
         self.statistic_manager.general_stats['simulations_per_turn'] = self.simulations_per_turn
@@ -467,9 +468,9 @@ class TrainingMaster:
                 self.state = self.State.SELFEVAL
                 logging.info('Progressing to Epoch {}. Starting Self- and AI-Evaluation...'.format(self.epoch))
 
-                self.statistic_manager.epochs[self.epoch - 1] = {
+                self.statistic_manager.epochs.append({
                     'start-self-eval-batch': self.statistic_manager.general_stats['current-batch']
-                }
+                })
 
     def _handle_messages(self):
         while True:
