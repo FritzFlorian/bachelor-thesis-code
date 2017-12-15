@@ -646,9 +646,18 @@ class AITrivialEvaluator:
         player_mapping = {tmp[0]: 0, tmp[1]: 1}
 
         # TODO: Handle Ports Properly
-        port = random.randint(2000, 4000)
-        server = network.BasicServer(start_game_state.board, port)
-        server.start()
+        found_port = False
+        while not found_port:
+            try:
+                port = random.randint(2000, 4000)
+                server = network.BasicServer(start_game_state.board, port)
+                server.start()
+                found_port = True
+            except IOError:
+                # TODO: Handle Ports Properly
+                found_port = False
+                print('Port Conflict, retry...')
+
         tournament.TrivialAIClient(definitions.AI_TRIVIAL_PATH).start('localhost', port)
         group = server.accept_client()
         server.set_player_for_group(group, tmp[1])
