@@ -337,10 +337,7 @@ class MCTSNode:
         sqrt_total_child_visits = math.sqrt(self.visits)
         # constant determining exploration
         # TODO: alter this value to find good fit
-        if self.visits < 10:
-            c_puct = 3
-        else:
-            c_puct = 2
+        c_puct = 3
 
         best_move_value = -100.0
         best_move = None
@@ -687,7 +684,9 @@ class AITrivialEvaluator:
                         best_probability = probability
                         selected_move = move
             else:
-                server.send_player_message(current_player, network.MoveRequestMessage(round(turn_time * 1000), 0))
+                # We give some extra time to the AI-Trivial, as it usually tries
+                # to send a response about 200ms before timeout.
+                server.send_player_message(current_player, network.MoveRequestMessage(round(turn_time * 1000 + 200), 0))
                 move_response = server.read_player_message(current_player, network.MoveResponseMessage)
                 selected_move = (current_player, move_response.pos, move_response.choice)
 
