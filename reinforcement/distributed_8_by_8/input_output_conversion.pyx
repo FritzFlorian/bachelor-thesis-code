@@ -10,7 +10,7 @@ NN_BOARD_SIZE = 12
 # The normal board size.
 BOARD_SIZE = 8
 # Now we now how much we can translate the board.
-BORDER = 1
+BORDER = 0
 MAX_TRANSLATION = NN_BOARD_SIZE - BOARD_SIZE - 2 * BORDER
 
 def input(evaluation, calculate_target=False):
