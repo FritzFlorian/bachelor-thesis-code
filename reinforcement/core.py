@@ -12,6 +12,7 @@ import random
 import time
 import definitions
 import reinforcement.util as util
+import functools
 
 
 class Evaluation:
@@ -520,10 +521,6 @@ class TrainingExecutor:
             with open(os.path.join(self.data_dir, "{0:010d}.pickle".format(self._current_number)), 'wb') as file:
                 pickle.dump(evaluations, file)
 
-            # TODO: Better manage the cache
-            # FIXME: Delete old elements from cache
-            self._cache[self._current_number] = evaluations
-
     def get_examples(self, n_examples):
         with self.lock:
             evaluations = []
@@ -534,8 +531,7 @@ class TrainingExecutor:
 
                 if not loaded_evaluations:
                     try:
-                        with open(os.path.join(self.data_dir, "{0:010d}.pickle".format(number)), 'rb') as file:
-                            loaded_evaluations = pickle.load(file)
+                        loaded_evaluations = self._load_example(number)
                     except IOError:
                         continue
 
@@ -548,6 +544,11 @@ class TrainingExecutor:
                 evaluations = evaluations + loaded_evaluations[:end_index]
 
             return evaluations
+
+    @functools.lru_cache(maxsize=256)
+    def _load_example(self, example_number):
+        with open(os.path.join(self.data_dir, "{0:010d}.pickle".format(example_number)), 'rb') as file:
+            return pickle.load(file)
 
     def load(self, filename):
         with open(filename, 'rb') as file:
