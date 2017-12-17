@@ -12,7 +12,7 @@ BOARD_WIDTH = BOARD_SIZE
 N_RAW_VALUES = 4
 FLOAT = tf.float32
 
-L2_LOSS_WEIGHT = 0.001
+L2_LOSS_WEIGHT = 0.002
 
 
 class SimpleNeuralNetwork(neural_network.NeuralNetwork):
