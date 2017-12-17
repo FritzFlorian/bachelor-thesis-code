@@ -11,8 +11,9 @@ import numpy as np
 import enum
 import os
 import threading
-import reinforcement.util as util
-import jsonpickle
+import kim
+import reversi.copy as copy
+import json
 
 
 class PlayingSlave:
@@ -320,9 +321,9 @@ class TrainingMaster:
     This will order slaves to execute selfplay, selfevaluation and aievaluation games,
     collect the results and use them to train a neural network instance."""
     class State(enum.Enum):
-        SELFPLAY = 1
-        SELFEVAL = 2
-        AIEVAL = 3
+        SELFPLAY = 'SELFPLAY'
+        SELFEVAL = 'SELFEVAL'
+        AIEVAL = 'AIEVAL'
 
     DATA_DIR = 'selfplay-data'
     WEIGHTS_DIR = 'weights-history'
@@ -391,8 +392,8 @@ class TrainingMaster:
         self.nn_client = nn_client.NeuralNetworkClient('tcp://localhost:{}'.format(definitions.TRAINING_NN_SERVER_PORT))
         self.nn_client.start()
 
-        if self.epoch > 0:
-            checkpoint_name = 'checkpoint-{0:05d}.zip'.format(self.epoch)
+        if self.progress.stats.progress.iteration > 0:
+            checkpoint_name = 'checkpoint-{0:05d}.zip'.format(self.progress.stats.progress.iteration)
             with open(os.path.join(self.weights_dir, checkpoint_name), 'rb') as file:
                 weights_binary = file.read()
                 self.nn_client.load_weights(weights_binary)
@@ -400,12 +401,13 @@ class TrainingMaster:
             with open(os.path.join(self.work_dir, 'best-checkpoint.zip'), 'rb') as file:
                 self.best_weights_binary = file.read()
         else:
-            self.epoch = 0
+            self.progress.stats.progress.iteration = 1
             self.best_weights_binary = self.nn_client.save_weights()
-            with open(os.path.join(self.work_dir, 'best-checkpoint.zip'), 'wb') as file:
-                file.write(self.best_weights_binary)
+            self._save_best_weights()
 
         self.current_weights_binary = self.nn_client.save_weights()
+        self._save_current_weights()
+        self.progress.save_stats()
 
     def _setup_training_executor(self):
         self.training_executor = core.TrainingExecutor(self.nn_client, os.path.join(self.work_dir, self.DATA_DIR),
@@ -457,16 +459,16 @@ class TrainingMaster:
         turn_time = self.progress.stats.settings.turn_time
         board_states = self.start_board_states
 
-        if self.state == self.State.SELFPLAY:
+        if self.progress.stats.progress.state == self.State.SELFPLAY:
             self.server.send_pyobj(
                 PlayingSlave.SelfplayWorkResponse(n_games, self.nn_name, self.best_weights_binary, board_states,
                                                   simulations_per_turn))
-        if self.state == self.State.SELFEVAL:
+        if self.progress.stats.progress.state == self.State.SELFEVAL:
             self.server.send_pyobj(
                 PlayingSlave.SelfEvaluationWorkResponse(n_games, self.nn_name, self.current_weights_binary,
                                                         self.best_weights_binary, board_states, simulations_per_turn,
                                                         epoch))
-        if self.state == self.State.AIEVAL:
+        if self.progress.stats.progress.state == self.State.AIEVAL:
             self.server.send_pyobj(
                 PlayingSlave.AIEvaluationWorkResponse(n_games, self.nn_name, self.best_weights_binary, board_states,
                                                       turn_time, epoch))
@@ -474,7 +476,7 @@ class TrainingMaster:
     def _handle_selfplay_result(self, work_result):
         n_evaluations = len(work_result.evaluation_lists)
 
-        self.progress.stats.current_epoch().self_play['n_games'] += n_evaluations
+        self.progress.stats.current_epoch().self_play.n_games += n_evaluations
         if self.progress.stats.progress.add_samples(self.State.SELFPLAY, n_evaluations):
             # Progress to the next step of the training
             self.progress.stats.progress.n_remaining = self.progress.stats.settings.n_self_eval
@@ -485,10 +487,10 @@ class TrainingMaster:
             self._save_current_weights()
 
             # Collect some stats on the current training step
-            self.progress.stats.current_epoch().self_play['end_batch'] = self.progress.stats.progress.current_batch
-            self.progress.stats.current_epoch().self_eval['start_batch'] = self.progress.stats.progress.current_batch
+            self.progress.stats.current_epoch().self_play.end_batch = self.progress.stats.progress.current_batch
+            self.progress.stats.current_epoch().self_eval.start_batch = self.progress.stats.progress.current_batch
 
-            logging.info('Start Self-Evaluation for Iteration {}...'.format(self.epoch))
+            logging.info('Start Self-Evaluation for Iteration {}...'.format(self.progress.stats.progress.iteration))
 
         for evaluations in work_result.evaluation_lists:
             self.training_executor.add_examples(evaluations)
@@ -503,9 +505,9 @@ class TrainingMaster:
             file.write(self.best_weights_binary)
 
     def _handle_selfeval_result(self, work_result):
-        self.progress.stats.current_epoch().self_eval['n_games'] += work_result.n_games
-        self.progress.stats.current_epoch().self_eval['old_score'] += work_result.nn_two_score
-        self.progress.stats.current_epoch().self_eval['new_score'] += work_result.nn_one_score
+        self.progress.stats.current_epoch().self_eval.n_games += work_result.n_games
+        self.progress.stats.current_epoch().self_eval.old_score += work_result.nn_two_score
+        self.progress.stats.current_epoch().self_eval.new_score += work_result.nn_one_score
 
         if self.progress.stats.progress.add_samples(self.State.SELFEVAL, work_result.n_games):
             # Progress to the next step of the training
@@ -513,45 +515,46 @@ class TrainingMaster:
             self.progress.stats.progress.state = self.State.AIEVAL
 
             # Collect some stats on the current training step
-            self.progress.stats.current_epoch().self_eval['end_batch'] = self.progress.stats.progress.current_batch
-            self.progress.stats.current_epoch().ai_eval['start_batch'] = self.progress.stats.progress.current_batch
+            self.progress.stats.current_epoch().self_eval.end_batch = self.progress.stats.progress.current_batch
+            self.progress.stats.current_epoch().ai_eval.start_batch = self.progress.stats.progress.current_batch
 
             # See if the new nn was better
-            old_score = self.progress.stats.current_epoch().self_eval['old_score']
-            new_score = self.progress.stats.current_epoch().self_eval['new_score']
-            n_games = self.progress.stats.current_epoch().self_eval['n_games']
+            old_score = self.progress.stats.current_epoch().self_eval.old_score
+            new_score = self.progress.stats.current_epoch().self_eval.new_score
+            n_games = self.progress.stats.current_epoch().self_eval.n_games
 
             logging.info('Finishing selfplay with result {} vs. {}'
                          .format(new_score, old_score))
             if new_score / n_games > self.progress.stats.settings.needed_avg_score:
                 logging.info('Choosing new weights, as it scored better then the current best.')
-                self.progress.stats.current_epoch().self_eval['new_better'] = True
+                self.progress.stats.current_epoch().self_eval.new_better = True
                 self.best_weights_binary = self.current_weights_binary
 
                 self._save_best_weights()
             else:
                 logging.info('Choosing old weights, as the new ones where not better.')
-                self.progress.stats.current_epoch().self_eval['new_better'] = False
+                self.progress.stats.current_epoch().self_eval.new_better = False
 
-        logging.info('Start AI-Evaluation for Iteration {}...'.format(self.epoch))
+            logging.info('Start AI-Evaluation for Iteration {}...'.format(self.progress.stats.progress.iteration))
 
     def _handle_aieval_result(self, work_result):
-        self.progress.stats.current_epoch().ai_eval['n_games'] += work_result.n_games
-        self.progress.stats.current_epoch().ai_eval['ai_score'] += work_result.ai_score
-        self.progress.stats.current_epoch().ai_eval['nn_score'] += work_result.nn_score
-        self.progress.stats.current_epoch().ai_eval['ai_stones'] += work_result.ai_stones
-        self.progress.stats.current_epoch().ai_eval['nn_stones'] += work_result.nn_stones
+        self.progress.stats.current_epoch().ai_eval.n_games += work_result.n_games
+        self.progress.stats.current_epoch().ai_eval.ai_score += work_result.ai_score
+        self.progress.stats.current_epoch().ai_eval.nn_score += work_result.nn_score
+        self.progress.stats.current_epoch().ai_eval.ai_stones += work_result.ai_stones
+        self.progress.stats.current_epoch().ai_eval.nn_stones += work_result.nn_stones
 
         if self.progress.stats.progress.add_samples(self.State.AIEVAL, work_result.n_games):
-            self.progress.stats.current_epoch().ai_eval['end_batch'] = self.progress.stats.progress.current_batch
+            self.progress.stats.current_epoch().ai_eval.end_batch = self.progress.stats.progress.current_batch
 
             # Progress to the next step of the training
-            self.progress.stats.progress.n_remaining = self.progress.stats.settings.n_ai_eval
+            self.progress.stats.progress.n_remaining = self.progress.stats.settings.n_self_play
             self.progress.stats.progress.state = self.State.SELFPLAY
             self.progress.stats.progress.iteration += 1
 
-            logging.info('Start Selfplay for Iteration {}...'.format(self.epoch))
-            self.progress.stats.current_epoch().self_play['start_batch'] = self.progress.stats.progress.current_batch
+            logging.info('Start Selfplay for Iteration {}...'.format(self.progress.stats.progress.iteration))
+            self._save_current_weights()
+            self.progress.stats.current_epoch().self_play.start_batch = self.progress.stats.progress.current_batch
 
 
 class TrainingRunProgress:
@@ -566,13 +569,23 @@ class TrainingRunProgress:
 
     def save_stats(self):
         with open(self.stats_file_name, 'w') as stats_file:
-            jsonpickle.set_decoder_options('json', indent=4, sort_keys=True)
-            stats_file.write(jsonpickle.encode(self.stats))
+            # Store the enum as an string.
+            # Could be cleaned up by using an appropriate mapper.
+            to_save = copy.deepcopy(self.stats)
+            to_save.progress.state = self.stats.progress.state.value
+
+            mapper = TrainingRunStatsMapper(obj=to_save)
+            stats_file.write(json.dumps(mapper.serialize(), indent=4))
 
     def load_stats(self):
         if os.path.isfile(self.stats_file_name):
             with open(self.stats_file_name, 'r') as stats_file:
-                self.stats = jsonpickle.decode(stats_file.read())
+                json_data = json.loads(stats_file.read())
+                mapper = TrainingRunStatsMapper(data=json_data)
+                loaded = mapper.marshal()
+                loaded.progress.state = TrainingMaster.State(loaded.progress.state)
+
+                self.stats = loaded
 
 
 class TrainingRunStats:
@@ -607,7 +620,7 @@ class TrainingRunStats:
             # The number of samples of the current state needed to progress to the next state
             self.n_remaining = 0
             # The current iteration
-            self.iteration = 1
+            self.iteration = 0
             # The current batch
             self.current_batch = 0
 
@@ -620,38 +633,107 @@ class TrainingRunStats:
 
             return False
 
-    class Epoch:
+    class Iteration:
+        class SelfEval:
+            pass
+        class SelfPlay:
+            pass
+        class AIEval:
+            pass
+
         def __init__(self):
-            self.self_eval = {
-                'n_games': 0,
-                'old_score': 0,
-                'new_score': 0,
-                'start_batch': 0,
-                'end_batch': 0,
-                'new_better': False,
-            }
-            self.self_play = {
-                'start_batch': 0,
-                'end_batch': 0,
-                'n_games': 0,
-            }
-            self.ai_eval = {
-                'n_games': 0,
-                'start_batch': 0,
-                'end_batch': 0,
-                'nn_score': 0,
-                'ai_score': 0,
-                'nn_stones': 0,
-                'ai_stones': 0,
-            }
+            self.self_eval = self.SelfEval()
+            self.self_eval.n_games = 0
+            self.self_eval.old_score = 0
+            self.self_eval.new_score = 0
+            self.self_eval.start_batch = 0
+            self.self_eval.end_batch = 0
+            self.self_eval.new_better = False
+
+            self.self_play = self.SelfPlay()
+            self.self_play.start_batch = 0
+            self.self_play.end_batch = 0
+            self.self_play.n_games = 0
+
+            self.ai_eval = self.AIEval()
+            self.ai_eval.n_games = 0
+            self.ai_eval.start_batch = 0
+            self.ai_eval.end_batch = 0
+            self.ai_eval.nn_score = 0
+            self.ai_eval.ai_score = 0
+            self.ai_eval.nn_stones = 0
+            self.ai_eval.ai_stones = 0
 
     def __init__(self):
         self.settings = self.Settings()
         self.progress = self.Progress()
-        self.epochs = []
+        self.iterations = []
 
     def current_epoch(self):
-        while len(self.epochs) <= self.progress.iteration:
-            self.epochs.append(self.Epoch())
+        while len(self.iterations) < self.progress.iteration:
+            self.iterations.append(self.Iteration())
 
-        return self.epochs[self.progress.iteration]
+        return self.iterations[self.progress.iteration - 1]
+
+
+# Python has NO good json serializer, so we need some boilerplate
+class SettingsMapper(kim.Mapper):
+    __type__ = TrainingRunStats.Settings
+    batch_size = kim.field.Integer()
+    training_history_size = kim.field.Integer()
+    simulations_per_turn = kim.field.Integer()
+    turn_time = kim.field.Float()
+    n_self_play = kim.field.Integer()
+    n_self_eval = kim.field.Integer()
+    n_ai_eval = kim.field.Integer()
+    needed_avg_score = kim.field.Float()
+
+
+class ProgressMapper(kim.Mapper):
+    __type__ = TrainingRunStats.Progress
+    state = kim.field.String()
+    n_remaining = kim.field.Integer()
+    iteration = kim.field.Integer()
+    current_batch = kim.field.Integer()
+
+
+class IterationSelfEvalMapper(kim.Mapper):
+    __type__ = TrainingRunStats.Iteration.SelfEval
+    n_games = kim.field.Integer()
+    old_score = kim.field.Integer()
+    new_score = kim.field.Integer()
+    start_batch = kim.field.Integer()
+    end_batch = kim.field.Integer()
+    new_better = kim.field.Boolean()
+
+
+class IterationSelfPlayMapper(kim.Mapper):
+    __type__ = TrainingRunStats.Iteration.SelfPlay
+    n_games = kim.field.Integer()
+    start_batch = kim.field.Integer()
+    end_batch = kim.field.Integer()
+
+
+class IterationAIEvalMapper(kim.Mapper):
+    __type__ = TrainingRunStats.Iteration.AIEval
+    n_games = kim.field.Integer()
+    start_batch = kim.field.Integer()
+    end_batch = kim.field.Integer()
+    nn_score = kim.field.Integer()
+    ai_score = kim.field.Integer()
+    nn_stones = kim.field.Integer()
+    ai_stones = kim.field.Integer()
+
+
+class IterationMapper(kim.Mapper):
+    __type__ = TrainingRunStats.Iteration
+    self_eval = kim.field.Nested(IterationSelfEvalMapper, allow_create=True)
+    ai_eval = kim.field.Nested(IterationAIEvalMapper, allow_create=True)
+    self_play = kim.field.Nested(IterationSelfPlayMapper, allow_create=True)
+
+
+class TrainingRunStatsMapper(kim.Mapper):
+    __type__ = TrainingRunStats
+    settings = kim.field.Nested(SettingsMapper, allow_create=True)
+    progress = kim.field.Nested(ProgressMapper, allow_create=True)
+    iterations = kim.field.Collection(kim.field.Nested(IterationMapper, allow_create=True), allow_create=True)
