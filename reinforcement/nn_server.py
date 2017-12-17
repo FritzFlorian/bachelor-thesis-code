@@ -13,7 +13,7 @@ import os
 
 
 class NeuralNetworkServer:
-    def __init__(self, port, neural_network, batch_size):
+    def __init__(self, port, neural_network, batch_size, log_dir=None, start_batch=0):
         self.port = port
         self.neural_network = neural_network
         self.input_conversion = neural_network.input_conversion_function()
@@ -23,9 +23,12 @@ class NeuralNetworkServer:
         self.execution_responses = []
         self.batch_size = batch_size
 
-        self.log_dir = os.path.join(os.path.curdir, 'nn_logs/{}-{}'.format(port, round(time.time() * 1000)))
-        self.n_batches_for_log = 50
-        self.current_training_batch = 0
+        if log_dir:
+            self.log_dir = log_dir
+        else:
+            self.log_dir = os.path.join(os.path.curdir, 'nn_logs/{}-{}'.format(port, round(time.time() * 1000)))
+        self.n_batches_for_log = 250
+        self.current_training_batch = start_batch
         self.log_file_writer = None
         self.graph = None
 

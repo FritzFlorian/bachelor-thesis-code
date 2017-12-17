@@ -123,7 +123,7 @@ class NeuralNetworkClient:
         self.context.term()
 
 
-def start_nn_server(port, nn_class_name, nn_init_args=(), batch_size=32):
+def start_nn_server(port, nn_class_name, nn_init_args=(), batch_size=32, log_dir=None, start_batch=0):
     """Starts a neural network server on the given port.
 
     The server is started using the venv cpython executable.
@@ -132,19 +132,20 @@ def start_nn_server(port, nn_class_name, nn_init_args=(), batch_size=32):
     the pypy interpreter, as all tensorflow components are loaded in the new process."""
     logging.info('Starting NN Server on port {}.'.format(port))
     p = multiprocessing.Process(target=_start_nn_server_internal,
-                                args=(port, nn_class_name, batch_size, nn_init_args))
+                                args=(port, nn_class_name, batch_size, log_dir, start_batch, nn_init_args))
     p.start()
     return p
 
 
-def _start_nn_server_internal(port, nn_class_name, batch_size, nn_init_args):
+def _start_nn_server_internal(port, nn_class_name, batch_size, log_dir, start_batch, nn_init_args):
     import reinforcement.nn_server as nn_server
 
     module_name, class_name = nn_class_name.rsplit('.', 1)
     nn_module = importlib.import_module(module_name)
     nn_class = getattr(nn_module, class_name)
 
-    server = nn_server.NeuralNetworkServer(port, nn_class(*nn_init_args), batch_size)
+    server = nn_server.NeuralNetworkServer(port, nn_class(*nn_init_args), batch_size,
+                                           log_dir=log_dir, start_batch=start_batch)
     server.run()
 
 

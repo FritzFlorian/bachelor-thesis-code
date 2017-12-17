@@ -328,6 +328,7 @@ class TrainingMaster:
     DATA_DIR = 'selfplay-data'
     WEIGHTS_DIR = 'weights-history'
     BEST_WEIGHTS = 'best-weights.zip'
+    LOG_DIR = 'tensorboard-logs'
 
     def __init__(self, work_dir, nn_name, start_board_states, port=definitions.TRAINING_MASTER_PORT):
         self.work_dir = work_dir
@@ -336,6 +337,9 @@ class TrainingMaster:
         self.weights_dir = os.path.join(self.work_dir, self.WEIGHTS_DIR)
         if not os.path.exists(self.weights_dir):
             os.makedirs(self.weights_dir)
+        self.log_dir = os.path.join(self.work_dir, self.LOG_DIR, 'current-run')
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
 
         self.nn_name = nn_name
         self.port = port
@@ -388,7 +392,8 @@ class TrainingMaster:
             self.context.term()
 
     def _setup_nn(self):
-        nn_client.start_nn_server(definitions.TRAINING_NN_SERVER_PORT, self.nn_name)
+        nn_client.start_nn_server(definitions.TRAINING_NN_SERVER_PORT, self.nn_name,
+                                  log_dir=self.log_dir, start_batch=self.progress.stats.progress.current_batch)
         self.nn_client = nn_client.NeuralNetworkClient('tcp://localhost:{}'.format(definitions.TRAINING_NN_SERVER_PORT))
         self.nn_client.start()
 
@@ -427,7 +432,7 @@ class TrainingMaster:
     def _add_training_progress(self):
         with self.training_progress_lock:
             self.progress.stats.progress.current_batch += 1
-            if self.progress.stats.progress.current_batch % 250 == 0:
+            if self.progress.stats.progress.current_batch % 100 == 0:
                 self.progress.save_stats()
 
     def _handle_messages(self):
