@@ -573,14 +573,18 @@ class TrainingRunProgress:
         self.stats.progress.n_remaining = self.stats.settings.n_self_play
 
     def save_stats(self):
-        with open(self.stats_file_name, 'w') as stats_file:
-            # Store the enum as an string.
-            # Could be cleaned up by using an appropriate mapper.
-            to_save = copy.deepcopy(self.stats)
-            to_save.progress.state = self.stats.progress.state.value
+        # Store the enum as an string.
+        # Could be cleaned up by using an appropriate mapper.
+        to_save = copy.deepcopy(self.stats)
+        to_save.progress.state = self.stats.progress.state.value
 
-            mapper = TrainingRunStatsMapper(obj=to_save)
-            stats_file.write(json.dumps(mapper.serialize(), indent=4))
+        mapper = TrainingRunStatsMapper(obj=to_save)
+        json_string = json.dumps(mapper.serialize(), indent=4)
+
+        with open(self.stats_file_name + '-copy', 'w') as stats_file:
+            stats_file.write(json_string)
+        with open(self.stats_file_name, 'w') as stats_file:
+            stats_file.write(json_string)
 
     def load_stats(self):
         if os.path.isfile(self.stats_file_name):
