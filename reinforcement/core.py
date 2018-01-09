@@ -13,6 +13,7 @@ import time
 import definitions
 import reinforcement.util as util
 import functools
+import logging
 
 
 class Evaluation:
@@ -636,6 +637,13 @@ class AITrivialEvaluator:
         self.nn_client = nn_client
 
     def run(self, start_game_state, turn_time):
+        try:
+            return self._run_internal(start_game_state, turn_time)
+        except network.DisqualifiedError:
+            logging.error("AITrivial Disqualified, retry the match!")
+            return self.run(start_game_state, turn_time)
+
+    def _run_internal(self, start_game_state, turn_time):
         thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
         current_game_state = start_game_state
