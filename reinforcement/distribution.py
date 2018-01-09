@@ -14,6 +14,8 @@ import threading
 import kim
 import reversi.copy as copy
 import json
+import signal
+import traceback
 
 
 class PlayingSlave:
@@ -98,7 +100,10 @@ class PlayingSlave:
         self.zmq_client = None
         self.poll = None
 
+        # Disable Interrupts in workers, we shutdown gracefully by our self
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.process_pool = multiprocessing.Pool(multiprocessing.cpu_count() - 1)
+        signal.signal(signal.SIGINT, original_sigint_handler)
 
     def run(self):
         self.context = zmq.Context()
@@ -107,11 +112,15 @@ class PlayingSlave:
         try:
             self._handle_connections()
         except KeyboardInterrupt:
-            logging.error('Keyboard Interrupt, shutting down server...')
+            logging.error('Keyboard Interrupt, shutting down Playing Slave...')
         finally:
             self.process_pool.terminate()
-            self.nn_client_one.stop()
-            self.nn_client_two.stop()
+            if self.nn_client_one:
+                self.nn_client_one.stop()
+            if self.nn_client_two:
+                self.nn_client_two.stop()
+
+            self._disconnect_client()
             self.context.term()
 
     def _handle_connections(self):
@@ -214,10 +223,16 @@ class PlayingSlave:
 
     @staticmethod
     def _play_game(game_state, nn_executor_client, n_simulations):
-        nn_executor_client.start()
-        selfplay_executor = core.SelfplayExecutor(game_state, nn_executor_client, n_simulations)
-        result = selfplay_executor.run()
-        nn_executor_client.stop()
+        try:
+            nn_executor_client.start()
+            selfplay_executor = core.SelfplayExecutor(game_state, nn_executor_client, n_simulations)
+            result = selfplay_executor.run()
+            nn_executor_client.stop()
+        except Exception as e:
+            # Print and re-raise the exception, as python will ignore it otherwise
+            print(traceback.format_exc())
+            raise e
+
         return result
 
     @staticmethod
@@ -379,7 +394,7 @@ class TrainingMaster:
         try:
             self._handle_messages()
         except KeyboardInterrupt:
-            logging.error('Keyboard Interrupt, shutting down server...')
+            logging.error('Keyboard Interrupt, shutting down Training Master...')
         finally:
             self.progress.save_stats()
 

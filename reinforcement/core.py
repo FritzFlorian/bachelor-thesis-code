@@ -35,11 +35,11 @@ class Evaluation:
         for move in self.possible_moves:
             self.probabilities[move] = 0.0
         self.expected_result = dict()
-        for player in game_state.start_players:
+        for player in self.game_state.start_players:
             self.expected_result[player] = 0.0
 
         # Keep it to be able to transform to/from normal form
-        self.active_player = game_state.calculate_next_player()
+        self.active_player = self.game_state.calculate_next_player()
 
         # Keep the applied transformations (rotation, mirroring) to be able to undo them.
         # TODO: write about dihedral groups in the thesis

@@ -6,10 +6,10 @@ from reversi.game_core import Board
 import logging
 import os
 
+logging.basicConfig(level=logging.DEBUG)
+
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
-
     work_dir = os.path.join(os.path.curdir, 'test')
     nn_name = 'reinforcement.distributed_8_by_8.neural_network.SimpleNeuralNetwork'
 

@@ -5,11 +5,11 @@ import reinforcement.distribution as distribution
 import definitions
 import logging
 
+logging.basicConfig(level=logging.DEBUG)
+
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
-
-    selfplay_server = distribution.PlayingSlave('tcp://localhost:{}'.format(definitions.TRAINING_MASTER_PORT))
+    selfplay_server = distribution.PlayingSlave('tcp://127.0.0.1:{}'.format(definitions.TRAINING_MASTER_PORT))
     selfplay_server.run()
 
 

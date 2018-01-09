@@ -10,6 +10,7 @@ import pickle
 import reinforcement.nn_client as nn_client
 import reinforcement.util as util
 import os
+import logging
 
 
 class NeuralNetworkServer:
@@ -39,47 +40,51 @@ class NeuralNetworkServer:
         self.socket = context.socket(zmq.ROUTER)
         self.socket.bind('tcp://*:{}'.format(self.port))
 
-        # Setup a tensorflow session to be used for the whole run.
-        self.graph = tf.Graph()
-        with self.graph.as_default():
-            with tf.Session() as sess:
-                self.neural_network.construct_network(sess, self.graph)
-                self.neural_network.init_network()
+        # Shutdown gracefully in case of interrupts
+        try:
+            # Setup a tensorflow session to be used for the whole run.
+            self.graph = tf.Graph()
+            with self.graph.as_default():
+                with tf.Session() as sess:
+                    self.neural_network.construct_network(sess, self.graph)
+                    self.neural_network.init_network()
 
-                while not self.stopped:
-                    try:
-                        # Multipart messages are needed to correctly map the response
-                        message = self.socket.recv_multipart(flags=zmq.NOBLOCK)
-                        response_ids = message[0:-2]
-                        message_content = pickle.loads(message[-1])
+                    while not self.stopped:
+                        try:
+                            # Multipart messages are needed to correctly map the response
+                            message = self.socket.recv_multipart(flags=zmq.NOBLOCK)
+                            response_ids = message[0:-2]
+                            message_content = pickle.loads(message[-1])
 
-                        # Process the incoming message...
-                        if isinstance(message_content, nn_client.ShutdownRequest):
-                            self._process_shutdown_request(response_ids, message_content)
-                        elif isinstance(message_content, nn_client.ExecutionRequest):
-                            self._process_execution_request(response_ids, message_content, sess)
-                        elif isinstance(message_content, nn_client.TrainingRequest):
-                            self._process_training_request(response_ids, message_content, sess)
-                        elif isinstance(message_content, nn_client.SaveWeightsRequest):
-                            self._process_save_weights_request(response_ids, message_content, sess)
-                        elif isinstance(message_content, nn_client.LoadWeightsRequest):
-                            self._process_load_weights_request(response_ids, message_content, sess)
-                        elif isinstance(message_content, nn_client.ConversionFunctionRequest):
-                            self._process_conversion_function_request(response_ids, message_content)
-                        else:
-                            print("Unknown message '{}' received!".format(message_content))
+                            # Process the incoming message...
+                            if isinstance(message_content, nn_client.ShutdownRequest):
+                                self._process_shutdown_request(response_ids, message_content)
+                            elif isinstance(message_content, nn_client.ExecutionRequest):
+                                self._process_execution_request(response_ids, message_content, sess)
+                            elif isinstance(message_content, nn_client.TrainingRequest):
+                                self._process_training_request(response_ids, message_content, sess)
+                            elif isinstance(message_content, nn_client.SaveWeightsRequest):
+                                self._process_save_weights_request(response_ids, message_content, sess)
+                            elif isinstance(message_content, nn_client.LoadWeightsRequest):
+                                self._process_load_weights_request(response_ids, message_content, sess)
+                            elif isinstance(message_content, nn_client.ConversionFunctionRequest):
+                                self._process_conversion_function_request(response_ids, message_content)
+                            else:
+                                print("Unknown message '{}' received!".format(message_content))
 
-                    except zmq.ZMQError:
-                        # Also execute not full batches if no new data arrived in time
-                        if len(self.execution_responses) >= 1:
-                            self._execute_batch(sess)
-                        else:
-                            # Don't  busy wait all the time
-                            time.sleep(0.01)
-            self.log_file_writer.close()
-
-        self.socket.close()
-        context.term()
+                        except zmq.ZMQError:
+                            # Also execute not full batches if no new data arrived in time
+                            if len(self.execution_responses) >= 1:
+                                self._execute_batch(sess)
+                            else:
+                                # Don't  busy wait all the time
+                                time.sleep(0.01)
+                self.log_file_writer.close()
+        except KeyboardInterrupt:
+            logging.error('Keyboard Interrupt, shutting down NN server...')
+        finally:
+            self.socket.close()
+            context.term()
 
     def _process_execution_request(self, response_ids, message_content, sess):
         response = nn_client.ExecutionResponse(response_ids, message_content.input_array)

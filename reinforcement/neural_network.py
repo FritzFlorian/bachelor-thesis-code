@@ -1,4 +1,3 @@
-# cython: profile=True
 """Functionality directly related to the Neural Networks used.
 
 This includes the abstract base class for every custom Neural Network and conversion functions
