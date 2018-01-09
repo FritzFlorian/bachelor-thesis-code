@@ -11,10 +11,11 @@ from reversi.game_core import Board, Field, PLAYERS, DisqualifiedError
 import socket
 import logging
 import time
+import definitions
 
 
-DEFAULT_PORT = 7777
-DEFAULT_HOST = 'localhost'
+DEFAULT_PORT = definitions.REVERSI_MATCH_SERVER_DEFAULT_PORT
+DEFAULT_HOST = definitions.REVERSI_MATCH_SERVER_DEFAULT_HOST
 # Always timeout moves if they take longer than 5 Minutes, no matter the depth limit
 MOVE_TIMEOUT = 5 * 60
 # Clients must answer basic request (not moves) in at most 10 seconds
