@@ -1,23 +1,18 @@
 # TODO: Properly compile this before running on OTHR computers
 import pyximport; pyximport.install()
-
-import reinforcement.distribution as distribution
-from reversi.game_core import Board
-import logging
+from reinforcement.command_line_interface import CommandLineInterface
 import os
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 def main():
     work_dir = os.path.join(os.path.curdir, 'test')
     nn_name = 'reinforcement.distributed_8_by_8.neural_network.SimpleNeuralNetwork'
 
-    with open('simple_8_by_8.map') as file:
-        board = Board(file.read())
-
-    training_master = distribution.TrainingMaster(work_dir, nn_name, [board])
-    training_master.run()
+    command_line_interface = CommandLineInterface(training_master=True, training_work_directory=work_dir,
+                                                  training_maps_directory='./maps', training_master_hostname='127.0.0.1',
+                                                  nn_class_name=nn_name)
+    command_line_interface.parse_args()
+    command_line_interface.execute()
 
 
 if __name__ == '__main__':
