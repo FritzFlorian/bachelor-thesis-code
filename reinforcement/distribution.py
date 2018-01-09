@@ -382,6 +382,10 @@ class TrainingMaster:
         # keep some stats about our progress
         self.progress = TrainingRunProgress(os.path.join(work_dir, 'stats.json'))
         # We could customize settings here, but defaults are fine
+        self.progress.stats.settings.n_self_play = 70
+        self.progress.stats.settings.n_ai_eval = 21
+        self.progress.stats.settings.n_self_eval = 21
+        self.progress.stats.settings.training_history_size = 200
         self.progress.load_stats()
         self.progress.save_stats()
 
