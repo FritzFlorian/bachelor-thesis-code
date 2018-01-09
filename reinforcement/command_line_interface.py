@@ -10,6 +10,7 @@ import logging
 import reinforcement.distribution as distribution
 import os
 from reversi.game_core import Board
+from reinforcement.ai_client import AIClient
 
 
 def main():
@@ -155,6 +156,8 @@ class CommandLineInterface:
 
     def _execute_ai_client(self):
         print('Executing AI Client to play on match-server "{}:{}".'.format(self.host, self.port))
+        ai_client = AIClient(14, self.nn_class_name, self.weights_file, self.host, self.port)
+        ai_client.run()
 
     def _execute_training_master(self):
         print('Executing Training Master with maps directory "{}", work directory "{}", on port "{}".'.format(self.maps_dir, self.work_dir, self.port))

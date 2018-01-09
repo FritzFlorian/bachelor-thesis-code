@@ -79,7 +79,8 @@ class NeuralNetworkServer:
                             else:
                                 # Don't  busy wait all the time
                                 time.sleep(0.01)
-                self.log_file_writer.close()
+                if self.log_file_writer:
+                    self.log_file_writer.close()
         except KeyboardInterrupt:
             logging.error('Keyboard Interrupt, shutting down NN server...')
         finally:
@@ -139,4 +140,4 @@ class NeuralNetworkServer:
         self.stopped = True
 
         response = nn_client.Response(response_ids)
-        self.socket.send_multipart(response)
+        self.socket.send_multipart(response.to_multipart())
