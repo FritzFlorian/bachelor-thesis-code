@@ -16,6 +16,7 @@ import reversi.copy as copy
 import json
 import signal
 import traceback
+import reinforcement.util
 
 
 class PlayingSlave:
@@ -318,6 +319,7 @@ class PlayingSlave:
     def _connect_client(self):
         if not self.zmq_client:
             self.zmq_client = self.context.socket(zmq.REQ)
+            reinforcement.util.secure_client_connection(self.zmq_client, self.context)
             self.zmq_client.connect(self.master_address)
 
             self.poll.register(self.zmq_client, zmq.POLLIN)
@@ -386,6 +388,7 @@ class TrainingMaster:
     def run(self):
         self.context = zmq.Context()
         self.server = self.context.socket(zmq.REP)
+        reinforcement.util.secure_server_connection(self.server, self.context)
         self.server.bind('tcp://*:{}'.format(self.port))
 
         self._setup_nn()

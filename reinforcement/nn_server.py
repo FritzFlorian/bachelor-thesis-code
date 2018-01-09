@@ -11,6 +11,7 @@ import reinforcement.nn_client as nn_client
 import reinforcement.util as util
 import os
 import logging
+import reinforcement.util
 
 
 class NeuralNetworkServer:
@@ -38,6 +39,7 @@ class NeuralNetworkServer:
         # all request in in a request-reply fashion.
         context = zmq.Context()
         self.socket = context.socket(zmq.ROUTER)
+        reinforcement.util.secure_server_connection(self.socket, context)
         self.socket.bind('tcp://*:{}'.format(self.port))
 
         # Shutdown gracefully in case of interrupts

@@ -14,6 +14,7 @@ import random
 import threading
 import reinforcement.core as core
 from reversi.game_core import GameState
+import reinforcement.util
 
 
 class NeuralNetworkClient:
@@ -99,6 +100,7 @@ class NeuralNetworkClient:
         self.context = zmq.Context()
 
         self.nn_server_socket = self.context.socket(zmq.DEALER)
+        reinforcement.util.secure_client_connection(self.nn_server_socket, self.context)
         self.nn_server_socket.connect(self.address)
 
         self.internal_router = self.context.socket(zmq.ROUTER)

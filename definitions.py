@@ -18,3 +18,13 @@ TRAINING_MASTER_PORT = 5200
 # Settings for the game core
 REVERSI_MATCH_SERVER_DEFAULT_PORT = 7777
 REVERSI_MATCH_SERVER_DEFAULT_HOST = 'localhost'
+
+
+# Settings for ZeroMQ security
+KEYS_DIR = os.path.join(ROOT_DIR, 'keys')
+PUBLIC_KEYS_DIR = os.path.join(KEYS_DIR, 'public_keys')
+PRIVATE_KEYS_DIR = os.path.join(KEYS_DIR, 'private_keys')
+SERVER_SECRET = os.path.join(PRIVATE_KEYS_DIR, 'server.key_secret')
+SERVER_PUBLIC = os.path.join(PUBLIC_KEYS_DIR, 'server.key')
+CLIENT_SECRET = os.path.join(PRIVATE_KEYS_DIR, 'client.key_secret')
+CLIENT_PUBLIC = os.path.join(PUBLIC_KEYS_DIR, 'client.key')
