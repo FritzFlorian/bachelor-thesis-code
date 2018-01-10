@@ -69,7 +69,43 @@ Sadly pypy did not bring the desired speedup, as it is extremly slow when manual
 numpy arrays.
 
 Because of that Cython was tested as a further alternative to speed up the code.
-This was a success and gained about 30-40 percent in speed, with further improvements possible.
+This was a success and gained about 50 percent in speed (after adding cython types to game core).
 
 The new code structure will be kept anyway, as it actually makes working with neural networks easier
 in the way I use them in this project.
+
+
+### Distributed 8 by 8
+
+The code was changed to allow one machine with a GPU to do the training and multiple other machines to do
+the selfplay games. This helps a lot, as with the current network size the selfplay is mainly the bottleneck,
+not the training (when a gpu is used).
+
+The change allowed to more then double the speed at which experiments can be run. The restructuring also
+helped a lot to make the code easier to maintain and therefore to more quickly test out new parameters/networks.
+
+After some tweaking and bug fixing the distributed 8 by 8 ran very smoothly on my laptop combined with my desktop pc.
+
+The results where also promising, showing a very strong play after about 15 hours of training.
+(see the final run for graphs/details)
+
+
+## Installing/Running/Usage
+
+### Installing
+
+- Install Python 3.5 64 bit
+- Install virtualenv (via pip)
+- Clone the project
+- Create a virtualenv for the project (cd project-folder; virtualenv -p python3 venv; source .\venv\bin\activate)
+- If running on windows
+    - Install required C++ compiler for cython
+    - This should work if you use the exact versions stated above (make sure to check Windows 8.1 SDK):
+      http://landinghub.visualstudio.com/visual-cpp-build-tools
+    - More Details: https://github.com/cython/cython/wiki/CythonExtensionsOnWindows
+- Run `pip install -r requirements.txt`
+- If running the training master with GPU acceleration
+    - Install all needed CUDA drivers (as stated on the TF homepage, make sure to get the right ones)
+    - Do not forget to set your PATH (also stated on the TF homepage)
+    - `pip uninstall tensorflow`
+    - `pip install tensorflow-gpu`
