@@ -103,6 +103,11 @@ The results where also promising, showing a very strong play after about 15 hour
         - Before activating the virtualenv for the first time run `Set-ExecutionPolicy RemoteSigned` in an administration shell
         - Then use `.\venv\Scripts\activate` to activate the virtualenv in any shell
 - If running on windows
+    - Install numpy and scipy manually if needed:
+        - Pre compiled libraries: https://www.lfd.uci.edu/~gohlke/pythonlibs/
+        - Choose the 64bit version of both libraries
+        - Download the .whl files
+        - run `pip install path/to/wheel.whl`
     - Install required C++ compiler for cython
         - This should work if you use the exact versions stated above (make sure to check Windows 8.1 SDK):
           http://landinghub.visualstudio.com/visual-cpp-build-tools
