@@ -12,7 +12,7 @@ BOARD_WIDTH = BOARD_SIZE
 N_RAW_VALUES = 4
 FLOAT = tf.float32
 
-L2_LOSS_WEIGHT = 0.0015  # L2 loss was doubled (want to be conservative, as this is the first run on the new hardware)
+L2_LOSS_WEIGHT = 0.0075  # L2 loss is a quarter of before
 
 
 class SimpleNeuralNetwork(neural_network.NeuralNetwork):
@@ -24,6 +24,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
 
     def __init__(self):
         super().__init__()
+        # More Filters to allow the network to learn more details
         self.n_conv_filetrs = 64
 
     def construct_network(self, sess, graph):

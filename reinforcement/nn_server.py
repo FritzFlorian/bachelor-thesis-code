@@ -29,7 +29,7 @@ class NeuralNetworkServer:
             self.log_dir = log_dir
         else:
             self.log_dir = os.path.join(os.path.curdir, 'nn_logs/{}-{}'.format(port, round(time.time() * 1000)))
-        self.n_batches_for_log = 250
+        self.n_batches_for_log = 100
         self.current_training_batch = start_batch
         self.log_file_writer = None
         self.graph = None
