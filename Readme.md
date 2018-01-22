@@ -69,7 +69,61 @@ Sadly pypy did not bring the desired speedup, as it is extremly slow when manual
 numpy arrays.
 
 Because of that Cython was tested as a further alternative to speed up the code.
-This was a success and gained about 30-40 percent in speed, with further improvements possible.
+This was a success and gained about 50 percent in speed (after adding cython types to game core).
 
 The new code structure will be kept anyway, as it actually makes working with neural networks easier
 in the way I use them in this project.
+
+
+### Distributed 8 by 8
+
+The code was changed to allow one machine with a GPU to do the training and multiple other machines to do
+the selfplay games. This helps a lot, as with the current network size the selfplay is mainly the bottleneck,
+not the training (when a gpu is used).
+
+The change allowed to more then double the speed at which experiments can be run. The restructuring also
+helped a lot to make the code easier to maintain and therefore to more quickly test out new parameters/networks.
+
+After some tweaking and bug fixing the distributed 8 by 8 ran very smoothly on my laptop combined with my desktop pc.
+
+The results where also promising, showing a very strong play after about 15 hours of training.
+(see the final run for graphs/details)
+
+
+## Installing/Running/Usage
+
+### Installing
+
+- Install Python 3.5 64 bit & python3-pip
+- Install virtualenv (via `pip install virtualenv')
+- Be sure to have setup git correctly (https://help.github.com/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent/)
+- Clone the project (https://github.com/FritzFlorian/bachelor-thesis-code/)
+- Create a virtualenv for the project (cd project-folder; virtualenv -p python3 venv; source ./venv/bin/activate;)
+    - WINDOWS NOTE:
+        - Before activating the virtualenv for the first time run `Set-ExecutionPolicy RemoteSigned` in an administration shell
+        - Then use `.\venv\Scripts\activate` to activate the virtualenv in any shell
+- If running on windows
+    - Install numpy and scipy manually if needed:
+        - Pre compiled libraries: https://www.lfd.uci.edu/~gohlke/pythonlibs/
+        - Choose the 64bit version of both libraries
+        - Download the .whl files
+        - run `pip install path/to/wheel.whl`
+    - Install required C++ compiler for cython
+        - This should work if you use the exact versions stated above (make sure to check Windows 8.1 SDK):
+          http://landinghub.visualstudio.com/visual-cpp-build-tools
+        - Or simply get the full VS Community (2015):
+          https://www.visualstudio.com/vs/older-downloads/
+        - More Details: https://github.com/cython/cython/wiki/CythonExtensionsOnWindows
+- Run `pip install -r requirements.txt`
+- If running the training master with GPU acceleration
+    - Install all needed CUDA drivers (as stated on the TF homepage, make sure to get the right ones),
+      here are the current ones needed:
+        - Graphics Drivers http://www.nvidia.de/Download/index.aspx
+        - VS 2015 Community Edition: https://www.visualstudio.com/vs/older-downloads/
+        - Nvidia Toolkit 8: https://developer.nvidia.com/cuda-80-ga2-download-archive
+        - Nvidia cuDNN: https://developer.nvidia.com/rdp/cudnn-download
+    - Do not forget to set your PATH (also stated on the TF homepage)
+        - Usually for CUDA: `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v8.0\bin`
+        - And this: `C:\Users\YOURNAME\Documents\cudnn-8.0-windows10-x64-v6.0\cuda\bin`
+    - `pip uninstall tensorflow`
+    - `pip install tensorflow-gpu` (recommended version: 1.4.0)
