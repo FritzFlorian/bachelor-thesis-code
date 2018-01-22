@@ -11,6 +11,9 @@ import reinforcement.distribution as distribution
 import os
 from reversi.game_core import Board
 from reinforcement.ai_client import AIClient
+import reinforcement.util
+import zmq
+import threading
 
 
 def main():
@@ -23,7 +26,7 @@ class CommandLineInterface:
     """Parses command line actions and runs the given action.
     Can be configured with default settings for specific test runs."""
 
-    def __init__(self, nn_class_name=None, training_work_directory=None, ai_client=False, ai_client_weights_file=None,
+    def __init__(self, name, nn_class_name=None, training_work_directory=None, ai_client=False, ai_client_weights_file=None,
                  match_server_hostname=definitions.REVERSI_MATCH_SERVER_DEFAULT_HOST,
                  match_server_port=definitions.REVERSI_MATCH_SERVER_DEFAULT_PORT, training_master_hostname=None,
                  training_master_port=definitions.TRAINING_MASTER_PORT, training_maps_directory=None,
@@ -67,17 +70,28 @@ class CommandLineInterface:
                                  help='The directory with all maps to be used for the training run')
 
         self.adjust_settings = None
+        self.logging_client = None
+        self.name = name
 
-    @staticmethod
-    def prepare_logger(level=logging.INFO):
+    def prepare_logger(self, level=logging.INFO, log_file='console_out.log'):
         """Call this at the start of your main python file (outside of the main method, has to always run).
         This will setup the logger for all started processes."""
-        def test(record):
-            print(record)
+        def logging_server_handler(record):
+            pass
 
-        handler = InterceptingHandler(test)
+        logging_server = LoggingSever(logging_server_handler, log_file=log_file)
+        logging_server.start()
+
+        self.logging_client = LoggingClient()
+        self.logging_client.start()
+
+        handler = InterceptingHandler(self._local_logging_handler)
         format = '[%(asctime)-15s] %(levelname)-10s-> %(message)s'
         logging.basicConfig(format=format, level=level, handlers=[handler])
+
+    def _local_logging_handler(self, record):
+        print(record)
+        self.logging_client.send_log_message('[{:15s}]{}'.format(self.name, record))
 
     @staticmethod
     def str2bool(v):
@@ -208,6 +222,59 @@ class InterceptingHandler(logging.Handler):
 
     def emit(self, record):
         self.handler_method(self.format(record))
+
+
+class LoggingSever:
+    def __init__(self, on_message, port=definitions.LOGGING_SERVER_PORT, log_file=None):
+        self.port = port
+        self.on_message = on_message
+
+        self.log_file_name = log_file
+
+    def start(self):
+        """Try to start a logging server, returns false if port was already taken"""
+        try:
+            self.context = zmq.Context()
+            self.socket = self.context.socket(zmq.REP)
+            reinforcement.util.secure_server_connection(self.socket, self.context, only_localhost=True)
+            self.socket.bind('tcp://*:{}'.format(self.port))
+
+            self.thread = threading.Thread(target=self._run)
+            self.thread.start()
+        except zmq.ZMQBaseError:
+            return False
+
+        return True
+
+    def _run(self):
+        if self.log_file_name:
+            with open(self.log_file_name, 'a') as file:
+                while True:
+                    message = self.socket.recv_string()
+                    self.socket.send_string('OK')
+                    file.write(message + '\n')
+                    file.flush()
+                    self.on_message(message)
+        else:
+            while True:
+                message = self.socket.recv_string()
+                self.socket.send_string('OK')
+                self.on_message(message)
+
+
+class LoggingClient:
+    def __init__(self, port=definitions.LOGGING_SERVER_PORT):
+        self.port = port
+
+    def start(self):
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.REQ)
+        reinforcement.util.secure_client_connection(self.socket, self.context, only_localhost=True)
+        self.socket.connect('tcp://127.0.0.1:{}'.format(self.port))
+
+    def send_log_message(self, message):
+        self.socket.send_string(message)
+        self.socket.recv_string()
 
 
 if __name__ == '__main__':
