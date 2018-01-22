@@ -66,6 +66,8 @@ class CommandLineInterface:
         self.parser.add_argument('-tm', '--training-maps-directory', default=training_maps_directory, dest='training_maps_directory',
                                  help='The directory with all maps to be used for the training run')
 
+        self.adjust_settings = None
+
     @staticmethod
     def str2bool(v):
         if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -176,7 +178,7 @@ class CommandLineInterface:
             print('No maps (ending with .map) fond in maps directory ({}).'.format(self.maps_dir))
 
         logging.basicConfig(level=logging.DEBUG)
-        training_master = distribution.TrainingMaster(self.work_dir, self.nn_class_name, boards)
+        training_master = distribution.TrainingMaster(self.work_dir, self.nn_class_name, boards, adjust_settings=self.adjust_settings)
         training_master.run()
 
     def _execute_selfplay_slave(self):

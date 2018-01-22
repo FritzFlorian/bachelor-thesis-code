@@ -58,7 +58,6 @@ class NeuralNetworkClient:
 
     def execute_training_batch(self, evaluations):
         """Executes a batch of training using the given evaluations."""
-
         inputs = []
         targets = []
         for evaluation in evaluations:

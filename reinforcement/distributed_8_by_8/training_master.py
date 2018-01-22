@@ -1,4 +1,3 @@
-# TODO: Properly compile this before running on OTHR computers
 import pyximport; pyximport.install()
 from reinforcement.command_line_interface import CommandLineInterface
 import os
@@ -12,7 +11,13 @@ def main():
                                                   training_maps_directory='./maps', training_master_hostname='127.0.0.1',
                                                   nn_class_name=nn_name)
     command_line_interface.parse_args()
+    command_line_interface.adjust_settings = adjust_settings
     command_line_interface.execute()
+
+
+# Manually adjust some settings for this run
+def adjust_settings(stats):
+    stats.settings.batch_size = 64
 
 
 if __name__ == '__main__':

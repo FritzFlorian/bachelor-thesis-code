@@ -9,15 +9,8 @@ import os
 def main():
     work_dir = 'test'
 
-    # Plot whole range without lines
-    plot(work_dir, 0, -1, False)
-
-    # Plot only 'good' middle part
-    # Start of 'good' middle is data point 61 (checkpoint file 62, as there index starts at 1), to data point 92
-    plot(work_dir, 30, 130, True)
-
+    plot(work_dir, 0, -1, True)
     print_avg_winrate(work_dir, 0, -1)
-    print_avg_winrate(work_dir, 61, 92)
 
 
 def print_avg_winrate(work_dir, lower_bound, upper_bound):

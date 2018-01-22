@@ -347,7 +347,7 @@ class TrainingMaster:
     BEST_WEIGHTS = 'best-weights.zip'
     LOG_DIR = 'tensorboard-logs'
 
-    def __init__(self, work_dir, nn_name, start_board_states, port=definitions.TRAINING_MASTER_PORT):
+    def __init__(self, work_dir, nn_name, start_board_states, port=definitions.TRAINING_MASTER_PORT, adjust_settings=None):
         self.work_dir = work_dir
         if not os.path.exists(self.work_dir):
             os.makedirs(self.work_dir)
@@ -381,12 +381,12 @@ class TrainingMaster:
 
         # keep some stats about our progress
         self.progress = TrainingRunProgress(os.path.join(work_dir, 'stats.json'))
-        # We could customize settings here, but defaults are fine
-        self.progress.stats.settings.n_self_play = 70
-        self.progress.stats.settings.n_ai_eval = 21
-        self.progress.stats.settings.n_self_eval = 21
-        self.progress.stats.settings.training_history_size = 200
         self.progress.load_stats()
+
+        # We could customize settings here, but defaults are fine
+        if adjust_settings:
+            adjust_settings(self.progress.stats)
+
         self.progress.save_stats()
 
     def run(self):

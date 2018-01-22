@@ -11,6 +11,7 @@ def main():
 
     # Plot general loss
     plot(os.path.join(work_dir, 'loss.csv'), 0, -1, loss_label='Gesamter Fehler')
+    plot(os.path.join(work_dir, 'loss_prob.csv'), 0, -1, loss_label='Prob Fehler')
 
     # Plot reg loss
     plot(os.path.join(work_dir, 'loss_reg.csv'), 0, -1, loss_label='L2 Regulierungs Fehler', y_lim=(0.49, 0.55))

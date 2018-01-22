@@ -47,7 +47,12 @@ class NeuralNetworkServer:
             # Setup a tensorflow session to be used for the whole run.
             self.graph = tf.Graph()
             with self.graph.as_default():
-                with tf.Session() as sess:
+                # GPU Memory is allocated only as needed, this allows to run multiple
+                # sessions on one machine.
+                config = tf.ConfigProto()
+                config.gpu_options.allow_growth = True
+
+                with tf.Session(config=config) as sess:
                     self.neural_network.construct_network(sess, self.graph)
                     self.neural_network.init_network()
 
