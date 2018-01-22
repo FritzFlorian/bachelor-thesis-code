@@ -11,6 +11,13 @@ import reinforcement.distribution as distribution
 import os
 from reversi.game_core import Board
 from reinforcement.ai_client import AIClient
+import reinforcement.util
+import zmq
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import reinforcement.distribution as dist
+import matplotlib.pyplot as plt
+import io
 
 
 def main():
@@ -23,7 +30,8 @@ class CommandLineInterface:
     """Parses command line actions and runs the given action.
     Can be configured with default settings for specific test runs."""
 
-    def __init__(self, nn_class_name=None, training_work_directory=None, ai_client=False, ai_client_weights_file=None,
+    def __init__(self, name, log_file='console_out.log',
+                 nn_class_name=None, training_work_directory=None, ai_client=False, ai_client_weights_file=None,
                  match_server_hostname=definitions.REVERSI_MATCH_SERVER_DEFAULT_HOST,
                  match_server_port=definitions.REVERSI_MATCH_SERVER_DEFAULT_PORT, training_master_hostname=None,
                  training_master_port=definitions.TRAINING_MASTER_PORT, training_maps_directory=None,
@@ -65,6 +73,34 @@ class CommandLineInterface:
                                  help='The port the training master runs on')
         self.parser.add_argument('-tm', '--training-maps-directory', default=training_maps_directory, dest='training_maps_directory',
                                  help='The directory with all maps to be used for the training run')
+        self.parser.add_argument('-ws', '--web-server', default=False, dest='web_server', nargs='?',
+                                 type=self.str2bool, const=True,
+                                 help='Set to true to run a monitoring webinterface on port {}'.format(definitions.WEB_INTERFACE_PORT))
+
+        self.adjust_settings = None
+        self.logging_client = None
+        self.name = name
+        self.log_file = log_file
+
+    def prepare_logger(self, level=logging.INFO):
+        """Call this at the start of your main python file (outside of the main method, has to always run).
+        This will setup the logger for all started processes."""
+        def logging_server_handler(record):
+            pass
+
+        logging_server = LoggingSever(logging_server_handler, log_file=self.log_file)
+        logging_server.start()
+
+        self.logging_client = LoggingClient()
+        self.logging_client.start()
+
+        handler = InterceptingHandler(self._local_logging_handler)
+        format = '[%(asctime)-15s] %(levelname)-10s-> %(message)s'
+        logging.basicConfig(format=format, level=level, handlers=[handler])
+
+    def _local_logging_handler(self, record):
+        print(record)
+        self.logging_client.send_log_message('[{:15s}]{}'.format(self.name, record))
 
     @staticmethod
     def str2bool(v):
@@ -78,6 +114,7 @@ class CommandLineInterface:
     def parse_args(self):
         """Reads the arguments provided on the command line and parses them."""
         args = self.parser.parse_args()
+        self.web_server = args.web_server
         if args.ai_client:
             self.mode = 'ai-client'
             self.port = args.match_port
@@ -99,6 +136,7 @@ class CommandLineInterface:
             self.port = args.master_port
             self.work_dir = args.training_work_directory
             self.maps_dir = args.training_maps_directory
+
             self._parse_nn_class(args)
 
             if not self.port:
@@ -147,12 +185,26 @@ class CommandLineInterface:
 
     def execute(self):
         """Executes the programm configured to the given arguments. Call parse_args first!"""
+        if self.web_server:
+            self._start_webserver()
+
         if self.mode == 'ai-client':
             self._execute_ai_client()
         elif self.mode == 'training-master':
             self._execute_training_master()
         elif self.mode == 'selfplay-slave':
             self._execute_selfplay_slave()
+
+    def _start_webserver(self):
+        thread = threading.Thread(target=self._run_webserver)
+        thread.start()
+
+    def _run_webserver(self):
+        server_address = ('0.0.0.0', definitions.WEB_INTERFACE_PORT)
+        httpd = HTTPServer(server_address, MonitoringInterfaceHandler)
+        httpd.output_log_file = self.log_file
+        httpd.work_dir = self.work_dir
+        httpd.serve_forever()
 
     def _execute_ai_client(self):
         print('Executing AI Client to play on match-server "{}:{}".'.format(self.host, self.port))
@@ -176,7 +228,7 @@ class CommandLineInterface:
             print('No maps (ending with .map) fond in maps directory ({}).'.format(self.maps_dir))
 
         logging.basicConfig(level=logging.DEBUG)
-        training_master = distribution.TrainingMaster(self.work_dir, self.nn_class_name, boards)
+        training_master = distribution.TrainingMaster(self.work_dir, self.nn_class_name, boards, adjust_settings=self.adjust_settings)
         training_master.run()
 
     def _execute_selfplay_slave(self):
@@ -186,6 +238,183 @@ class CommandLineInterface:
         logging.basicConfig(level=logging.DEBUG)
         selfplay_server = distribution.PlayingSlave('tcp://{}:{}'.format(self.host, self.port))
         selfplay_server.run()
+
+
+# Some Helpers for Logging/Monitoring
+class InterceptingHandler(logging.Handler):
+    def __init__(self, handler_method):
+        super().__init__()
+        self.handler_method = handler_method
+
+    def emit(self, record):
+        self.handler_method(self.format(record))
+
+
+class LoggingSever:
+    def __init__(self, on_message, port=definitions.LOGGING_SERVER_PORT, log_file=None):
+        self.port = port
+        self.on_message = on_message
+
+        self.log_file_name = log_file
+
+    def start(self):
+        """Try to start a logging server, returns false if port was already taken"""
+        try:
+            self.context = zmq.Context()
+            self.socket = self.context.socket(zmq.REP)
+            reinforcement.util.secure_server_connection(self.socket, self.context, only_localhost=True)
+            self.socket.bind('tcp://*:{}'.format(self.port))
+
+            self.thread = threading.Thread(target=self._run)
+            self.thread.start()
+        except zmq.ZMQBaseError:
+            return False
+
+        return True
+
+    def _run(self):
+        if self.log_file_name:
+            with open(self.log_file_name, 'a') as file:
+                while True:
+                    message = self.socket.recv_string()
+                    self.socket.send_string('OK')
+                    file.write(message + '\n')
+                    file.flush()
+                    self.on_message(message)
+        else:
+            while True:
+                message = self.socket.recv_string()
+                self.socket.send_string('OK')
+                self.on_message(message)
+
+
+class LoggingClient:
+    def __init__(self, port=definitions.LOGGING_SERVER_PORT):
+        self.port = port
+
+    def start(self):
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.REQ)
+        reinforcement.util.secure_client_connection(self.socket, self.context, only_localhost=True)
+        self.socket.connect('tcp://127.0.0.1:{}'.format(self.port))
+
+    def send_log_message(self, message):
+        self.socket.send_string(message)
+        self.socket.recv_string()
+
+
+class MonitoringInterfaceHandler(BaseHTTPRequestHandler):
+    # GET
+    def do_GET(self):
+        if self.path == '/graph.png':
+            self._do_get_graph()
+        else:
+            self._do_get_default()
+
+    def _do_get_default(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+
+        # Send message back to client
+        log_messages = 'No Log Messages to Display'
+        if self.server.output_log_file:
+            log_messages = self.tail_file(self.server.output_log_file, 1000)
+
+        message = """
+<!DOCTYPE html>
+<html lang="en">
+    <body>
+        <textarea style='width: 100%; height: 500px;' id='log_textarea'>
+{}
+        </textarea>
+        <img src='graph.png' style='width: 100%; height: auto; max-width: 1000px; margin: auto; display:block;'/>
+        <script>
+        (function() {{
+            var textarea = document.getElementById('log_textarea');
+            textarea.scrollTop = textarea.scrollHeight;
+        }})();
+        </script>
+    </body>
+</html>
+""".format(log_messages)
+
+        # Write content as utf-8 data
+        self.wfile.write(bytes(message, "utf8"))
+
+    def _do_get_graph(self):
+        if not self.server.work_dir:
+            self.send_response(404)
+            return
+
+        self.send_response(200)
+        self.send_header('Content-type', 'image/png')
+        self.end_headers()
+
+        img = self.plot(self.server.work_dir, 0, -1, False)
+        self.wfile.write(img.getbuffer())
+
+    @staticmethod
+    def plot(work_dir, lower_bound, upper_bound, show_progress_lines, smoothing=0.9):
+        x_scaling = 1 / 1000  # Show thousands on x axis
+
+        progress = dist.TrainingRunProgress(os.path.join(work_dir, 'stats.json'))
+        progress.load_stats()
+
+        wins = []
+        x_steps = []
+
+        new_was_better = []
+        for iteration in progress.stats.iterations[lower_bound:upper_bound]:
+            if iteration.ai_eval.n_games < 14:
+                break
+
+            wins.append((iteration.ai_eval.nn_score + iteration.ai_eval.n_games) / (2 * iteration.ai_eval.n_games))
+            x_steps.append(iteration.ai_eval.end_batch * x_scaling)
+
+            if iteration.self_eval.new_better:
+                new_was_better.append(iteration.self_eval.end_batch * x_scaling)
+
+        smoothed_wins = [wins[0]]
+        for i in range(1, len(wins)):
+            smoothed_wins.append(smoothing * smoothed_wins[i - 1] + (1 - smoothing) * wins[i])
+
+        plt.plot(x_steps, wins, linestyle='--')
+        plt.plot(x_steps, smoothed_wins)
+        plt.ylim(0, 1)
+        plt.xlabel('Batch (in 1000)')
+        plt.ylabel('% gewonnener Spiele')
+        plt.axhline(y=0.5, color='r')
+        if show_progress_lines:
+            for better_x in new_was_better:
+                plt.axvline(x=better_x, linestyle=':')
+
+        result = io.BytesIO()
+        plt.savefig(result,  dpi=400)
+        plt.clf()
+
+        return result
+
+    @staticmethod
+    def tail_file(filename, nlines):
+        with open(filename) as qfile:
+            qfile.seek(0, os.SEEK_END)
+            endf = position = qfile.tell()
+            linecnt = 0
+            while position >= 0:
+                qfile.seek(position)
+                next_char = qfile.read(1)
+                if next_char == "\n" and position != endf - 1:
+                    linecnt += 1
+
+                if linecnt == nlines:
+                    break
+                position -= 1
+
+            if position < 0:
+                qfile.seek(0)
+
+            return qfile.read()
 
 
 if __name__ == '__main__':

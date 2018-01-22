@@ -512,7 +512,6 @@ class TrainingExecutor:
             os.makedirs(self.data_dir)
 
         self.lock = threading.Lock()
-        self._cache = dict()
         self._current_number = util.count_files(self.data_dir)
 
     def add_examples(self, evaluations):
@@ -528,17 +527,11 @@ class TrainingExecutor:
             while len(evaluations) < n_examples:
                 oldest_index = max(1, self._current_number - self.training_history_size)
                 number = random.randint(oldest_index, self._current_number)
-                loaded_evaluations = self._cache.get(number, None)
 
-                if not loaded_evaluations:
-                    try:
-                        loaded_evaluations = self._load_example(number)
-                    except IOError:
-                        continue
-
-                # TODO: Better manage the cache
-                # FIXME: Delete old elements from cache
-                self._cache[number] = loaded_evaluations
+                try:
+                    loaded_evaluations = self._load_example(number)
+                except IOError:
+                    continue
 
                 random.shuffle(loaded_evaluations)
                 end_index = min(round(n_examples / 8 + 1), len(loaded_evaluations))
@@ -546,7 +539,7 @@ class TrainingExecutor:
 
             return evaluations
 
-    @functools.lru_cache(maxsize=256)
+    @functools.lru_cache(maxsize=512)
     def _load_example(self, example_number):
         with open(os.path.join(self.data_dir, "{0:010d}.pickle".format(example_number)), 'rb') as file:
             return pickle.load(file)
