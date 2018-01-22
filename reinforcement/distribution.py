@@ -496,20 +496,24 @@ class TrainingMaster:
         board_states = self.start_board_states
 
         if self.progress.stats.progress.state == self.State.SELFPLAY:
+            logging.info('Sending Selfplay Work Request to Playing Slave')
             self.server.send_pyobj(
                 PlayingSlave.SelfplayWorkResponse(n_games, self.nn_name, self.best_weights_binary, board_states,
                                                   simulations_per_turn))
         if self.progress.stats.progress.state == self.State.SELFEVAL:
+            logging.info('Sending Selfeval Work Request to Playing Slave')
             self.server.send_pyobj(
                 PlayingSlave.SelfEvaluationWorkResponse(n_games, self.nn_name, self.current_weights_binary,
                                                         self.best_weights_binary, board_states, simulations_per_turn,
                                                         epoch))
         if self.progress.stats.progress.state == self.State.AIEVAL:
+            logging.info('Sending AI Eval Work Request to Playing Slave')
             self.server.send_pyobj(
                 PlayingSlave.AIEvaluationWorkResponse(n_games, self.nn_name, self.best_weights_binary, board_states,
                                                       turn_time, epoch))
 
     def _handle_selfplay_result(self, work_result):
+        logging.info('Getting Selfplay Results from Playing Slave')
         n_evaluations = len(work_result.evaluation_lists)
 
         self.progress.stats.current_epoch().self_play.n_games += n_evaluations
@@ -541,6 +545,8 @@ class TrainingMaster:
             file.write(self.best_weights_binary)
 
     def _handle_selfeval_result(self, work_result):
+        logging.info('Getting Selfeval Results from Playing Slave (New {} vs. Old {})'.format(work_result.nn_one_score, work_result.nn_two_score))
+
         self.progress.stats.current_epoch().self_eval.n_games += work_result.n_games
         self.progress.stats.current_epoch().self_eval.old_score += work_result.nn_two_score
         self.progress.stats.current_epoch().self_eval.new_score += work_result.nn_one_score
@@ -574,6 +580,8 @@ class TrainingMaster:
             logging.info('Start AI-Evaluation for Iteration {}...'.format(self.progress.stats.progress.iteration))
 
     def _handle_aieval_result(self, work_result):
+        logging.info('Getting Selfeval Results from Playing Slave (NN {} vs. AI {})'.format(work_result.nn_score, work_result.ai_score))
+
         self.progress.stats.current_epoch().ai_eval.n_games += work_result.n_games
         self.progress.stats.current_epoch().ai_eval.ai_score += work_result.ai_score
         self.progress.stats.current_epoch().ai_eval.nn_score += work_result.nn_score
