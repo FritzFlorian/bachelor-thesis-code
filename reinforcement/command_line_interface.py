@@ -18,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import reinforcement.distribution as dist
 import matplotlib.pyplot as plt
 import io
+import multiprocessing
 
 
 def main():
@@ -85,6 +86,9 @@ class CommandLineInterface:
     def prepare_logger(self, level=logging.INFO):
         """Call this at the start of your main python file (outside of the main method, has to always run).
         This will setup the logger for all started processes."""
+        # This is needed for tensorflow and the logging to work properly
+        multiprocessing.set_start_method('spawn', True)
+
         def logging_server_handler(record):
             pass
 
