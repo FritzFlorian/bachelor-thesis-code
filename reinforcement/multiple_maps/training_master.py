@@ -3,6 +3,9 @@ from reinforcement.command_line_interface import CommandLineInterface
 import os
 
 
+CommandLineInterface.prepare_logger()
+
+
 def main():
     work_dir = os.path.join(os.path.curdir, 'test')
     nn_name = 'reinforcement.multiple_maps.neural_network.SimpleNeuralNetwork'

@@ -155,17 +155,26 @@ class PlayingSlave:
             time.sleep(message.wait_time)
             return self.EmptyWorkResult()
         if isinstance(message, self.SelfplayWorkResponse):
+            logging.info('Start processing Selfplay work request from master...')
             self._prepare_networks(message.nn_name, message.weights_zip_binary)
             evaluation_lists = self._play_games(message.n_games, message.board_states, message.simulations_per_turn)
             return self.SelfplayWorkResult(evaluation_lists)
         if isinstance(message, self.SelfEvaluationWorkResponse):
+            logging.info('Start processing SelfEvaluation work request from master...')
             self._prepare_networks(message.nn_name, message.weights_binary_one, message.weights_binary_two)
             scores = self._self_evaluate(message.n_games, message.board_states, message.simulations_per_turn)
             return self.SelfEvaluationWorkResult(scores[0], scores[1], message.n_games)
         if isinstance(message, self.AIEvaluationWorkResponse):
-            self._prepare_networks(message.nn_name, message.weights_zip_binary)
-            scores, stones = self._ai_evaluate(message.n_games, message.board_states, message.turn_time)
-            return self.AIEvaluationWorkResult(scores[0], scores[1], stones[0], stones[1], message.n_games)
+            logging.info('Start processing AIEvaluation work request from master...')
+            if definitions.AI_TRIVIAL_AVAILABLE:
+                self._prepare_networks(message.nn_name, message.weights_zip_binary)
+                scores, stones = self._ai_evaluate(message.n_games, message.board_states, message.turn_time)
+                return self.AIEvaluationWorkResult(scores[0], scores[1], stones[0], stones[1], message.n_games)
+            else:
+                logging.warning('Can not process work request, AITrivial executable is missing!')
+                logging.warning('Waiting 30 seconds and retry work request...')
+                time.sleep(30)
+                return self.EmptyWorkResult()
 
         return self.EmptyWorkResult()
 

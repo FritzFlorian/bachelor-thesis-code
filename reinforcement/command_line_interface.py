@@ -69,6 +69,17 @@ class CommandLineInterface:
         self.adjust_settings = None
 
     @staticmethod
+    def prepare_logger(level=logging.INFO):
+        """Call this at the start of your main python file (outside of the main method, has to always run).
+        This will setup the logger for all started processes."""
+        def test(record):
+            print(record)
+
+        handler = InterceptingHandler(test)
+        format = '[%(asctime)-15s] %(levelname)-10s-> %(message)s'
+        logging.basicConfig(format=format, level=level, handlers=[handler])
+
+    @staticmethod
     def str2bool(v):
         if v.lower() in ('yes', 'true', 't', 'y', '1'):
             return True
@@ -188,6 +199,15 @@ class CommandLineInterface:
         logging.basicConfig(level=logging.DEBUG)
         selfplay_server = distribution.PlayingSlave('tcp://{}:{}'.format(self.host, self.port))
         selfplay_server.run()
+
+
+class InterceptingHandler(logging.Handler):
+    def __init__(self, handler_method):
+        super().__init__()
+        self.handler_method = handler_method
+
+    def emit(self, record):
+        self.handler_method(self.format(record))
 
 
 if __name__ == '__main__':

@@ -1,19 +1,30 @@
 import os
-
-# Settings for training/internal tournaments
-EXEC_ENDING = ''
-if os.name == 'Windows':
-    EXEC_ENDING = '.exe'
+import platform
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-AI_TRIVIAL_PATH = os.path.join(ROOT_DIR, 'bin/ai_trivial{}'.format(EXEC_ENDING))
+# Settings for training/internal tournaments
+AI_TRIVIAL_PATH_UNIX = 'bin/ai_trivial'
+AI_TRIVIAL_PATH_WINDOWS = 'bin/ai_trivial.exe'
+AI_TRIVIAL_PATH_MAC = 'bin/ai_trivial_mac'
+if platform.system() == 'Windows':
+    AI_TRIVIAL_PATH = os.path.join(ROOT_DIR, AI_TRIVIAL_PATH_WINDOWS)
+elif platform.system() == 'Darwin':
+    AI_TRIVIAL_PATH = os.path.join(ROOT_DIR, AI_TRIVIAL_PATH_MAC)
+else:
+    AI_TRIVIAL_PATH = os.path.join(ROOT_DIR, AI_TRIVIAL_PATH_UNIX)
+
+AI_TRIVIAL_AVAILABLE = os.path.isfile(AI_TRIVIAL_PATH)
+
 
 SELFPLAY_NN_SERVER_PORT = 5100
 SELFEVAL_NN_SERVER_PORT = 5101
 TRAINING_NN_SERVER_PORT = 5102
 
 TRAINING_MASTER_PORT = 5200
+
+WEB_INTERFACE_PORT = 5300
+LOGGING_SERVER_PORT = 5301
 
 # Settings for the game core
 REVERSI_MATCH_SERVER_DEFAULT_PORT = 7777
