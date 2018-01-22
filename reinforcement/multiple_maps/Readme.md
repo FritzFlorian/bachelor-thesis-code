@@ -1,3 +1,5 @@
+# Changes
+
 Next experiment after 'distributed_8_by_8' that ran with a single map.
 The following changes where applied.
 
@@ -15,3 +17,11 @@ The following changes where applied.
 - Add two more residual blocks
     Maybe the worse results/tactic came because the nn could not sufficiently learn general game rules.
     Also the board got bigger in the 10 by 10 map.
+
+
+# Results
+
+The winrate went up to about 65% and stayed there for the rest of the time.
+It seems that the more complex task could not be solved by the network, as it did simply
+stop to progress. The fact that the win rate did not significantly drop after its maximum
+value shows that the variety of maps might have lowered the chance of overfitting to one strategy.
