@@ -93,6 +93,7 @@ The results where also promising, showing a very strong play after about 15 hour
 ## Installing/Running/Usage
 
 ### Installing
+Follow the instructions to install all needed requirements to run the project.
 
 - Install Python 3.5 64 bit & python3-pip
 - Install virtualenv (via `pip install virtualenv')
@@ -114,7 +115,10 @@ The results where also promising, showing a very strong play after about 15 hour
         - Or simply get the full VS Community (2015):
           https://www.visualstudio.com/vs/older-downloads/
         - More Details: https://github.com/cython/cython/wiki/CythonExtensionsOnWindows
+        - If this does not work, add the visual studio 'rc.exe' to your PATH variable
 - Run `pip install -r requirements.txt`
+- If running on windows:
+    - If installing all dependencies does not work, also install tensorflow, cython and pyzmq manually
 - If running the training master with GPU acceleration
     - Install all needed CUDA drivers (as stated on the TF homepage, make sure to get the right ones),
       here are the current ones needed:
@@ -127,3 +131,43 @@ The results where also promising, showing a very strong play after about 15 hour
         - And this: `C:\Users\YOURNAME\Documents\cudnn-8.0-windows10-x64-v6.0\cuda\bin`
     - `pip uninstall tensorflow`
     - `pip install tensorflow-gpu` (recommended version: 1.4.0)
+
+### Updating the project
+To update the project simply pull from the git repo. If needed recreate the virtualenv and reinstall the dependencies.
+
+### Run the Project
+The main experiments that are run during the bachelor thesis can be found in the subdirectories
+`reinforcement/experiment_name`. To start training you will need to start one 'training_master' process
+(best run on a machine with fast GPU) and at least one 'playing_slave'.
+Most variables to run these are pre-configured in the separate experiments, to run them you normally only have
+to provide the ip of the 'training_master'.
+
+Before performing any of the below task follow these steps:
+- cd projectdirectory
+- on Unix
+    - source ./venv/bin/activate
+- on Windows
+    - .\venv\Scripts\activate
+- cd reinforcement/experiment-name
+
+Follow these steps to start the training master:
+- on Windows
+    - Add the project directory to the PYTHONPATH enviroment variable
+    - python training_master -ws
+- on Unix
+    - PYTHONPATH ../../ python training_master -ws
+
+Follow these steps to start the one playing slave:
+- on Windows
+    - Add the project directory to the PYTHONPATH enviroment variable
+    - python playing_slave -mi HOST-OF-MASTER
+- on Unix
+    - PYTHONPATH ../../ python playing_slave -mi HOST-OF-MASTER
+
+Follow these steps to start tensorboard:
+- cd test
+- tensorboard --logdir tensorboard-logs
+
+
+
+
