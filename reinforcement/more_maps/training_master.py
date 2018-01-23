@@ -24,7 +24,7 @@ def adjust_settings(stats):
     stats.settings.n_ai_eval = 21
     stats.settings.n_self_eval = 21
     stats.settings.training_history_size = 200
-    stats.settings.batch_size = 512
+    stats.settings.batch_size = 200
 
 
 if __name__ == '__main__':

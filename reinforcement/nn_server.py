@@ -122,6 +122,8 @@ class NeuralNetworkServer:
             self.neural_network.log_training_progress(sess, self.log_file_writer, message_content.input_arrays,
                                                       message_content.target_arrays, self.current_training_batch)
 
+        # FIXME: Research what causes this call to leak memory if the inputs get too big.
+        #        The leak happens at a fixed threshold on the input size (about 200).
         self.neural_network.train_batch(sess, message_content.input_arrays, message_content.target_arrays)
         self.current_training_batch += 1
 
