@@ -18,8 +18,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import reinforcement.distribution as dist
 import matplotlib.pyplot as plt
 import io
+import reinforcement.util as util
 import multiprocessing
-
 
 def main():
     command_line_interface = CommandLineInterface()
@@ -359,7 +359,7 @@ class MonitoringInterfaceHandler(BaseHTTPRequestHandler):
         self.wfile.write(img.getbuffer())
 
     @staticmethod
-    def plot(work_dir, lower_bound, upper_bound, show_progress_lines, smoothing=0.9):
+    def plot(work_dir, lower_bound, upper_bound, show_progress_lines, smoothing=0.1):
         x_scaling = 1 / 1000  # Show thousands on x axis
 
         progress = dist.TrainingRunProgress(os.path.join(work_dir, 'stats.json'))
@@ -379,9 +379,7 @@ class MonitoringInterfaceHandler(BaseHTTPRequestHandler):
             if iteration.self_eval.new_better:
                 new_was_better.append(iteration.self_eval.end_batch * x_scaling)
 
-        smoothed_wins = [wins[0]]
-        for i in range(1, len(wins)):
-            smoothed_wins.append(smoothing * smoothed_wins[i - 1] + (1 - smoothing) * wins[i])
+        smoothed_wins = util.smooth_array(wins, smoothing)
 
         plt.plot(x_steps, wins, linestyle='--')
         plt.plot(x_steps, smoothed_wins)

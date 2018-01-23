@@ -6,6 +6,7 @@ import zmq
 import zmq.auth
 from zmq.auth.thread import ThreadAuthenticator
 import definitions
+import numpy as np
 
 
 def save_neural_net_to_zip_binary(neural_network, session):
@@ -77,5 +78,25 @@ def _init_auth(ctx, only_localhost):
 
     auth.configure_curve(domain='*', location=definitions.PUBLIC_KEYS_DIR)
 
+
 def count_files(dir_path):
     return len([name for name in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, name))])
+
+
+def smooth_array(array, smoothing):
+    smoothed_array = []
+    max_steps = max(1, round(len(array) * smoothing))
+    for i in range(len(array)):
+        values = [array[i]]
+        for j in range(1, max_steps + 1):
+            if i - j < 0:
+                break
+            values.append(array[i - j])
+        for j in range(1, max_steps + 1):
+            if i + j >= len(array):
+                break
+            values.append(array[i + j])
+
+        smoothed_array.append(np.average(values))
+
+    return smoothed_array
