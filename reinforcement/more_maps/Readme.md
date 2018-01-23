@@ -16,5 +16,9 @@ The following changes where applied.
     This might further help to not 'waste' some of the connections to the fully connected layer
     with figuring out correct moves.
 - Increase Number of layers given to final fully connected layer
+- Try to use the adam optimizer instead of momentum
+    This should help to adapt the learning rate. I'm not sure if this will work well, as we do not
+    have a classical supervised learning task, but it's worth a shot as it usually performs better
+    then the momentum optimizer.
 
 
