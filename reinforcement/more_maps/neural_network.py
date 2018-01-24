@@ -115,7 +115,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
 
         with tf.variable_scope('Training'):
             # Use a simpler optimizer to avoid issues because of it
-            optimizer = tf.train.AdamOptimizer(0.002)
+            optimizer = tf.train.MomentumOptimizer(0.002, 0.9)
             self.training_op = optimizer.minimize(self.loss)
 
         with tf.variable_scope('Logging'):
