@@ -16,13 +16,14 @@ import zmq
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import reinforcement.distribution as dist
-import matplotlib.pyplot as plt
 import io
 import reinforcement.util as util
 import multiprocessing
 
+
 def main():
-    command_line_interface = CommandLineInterface()
+    command_line_interface = CommandLineInterface('MAIN-CMD')
+    command_line_interface.prepare_logger()
     command_line_interface.parse_args()
     command_line_interface.execute()
 
@@ -351,15 +352,27 @@ class MonitoringInterfaceHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             return
 
-        self.send_response(200)
-        self.send_header('Content-type', 'image/png')
-        self.end_headers()
+        try:
+            self.send_response(200)
+            self.send_header('Content-type', 'image/png')
+            self.end_headers()
 
-        img = self.plot(self.server.work_dir, 0, -1, False)
-        self.wfile.write(img.getbuffer())
+            img = self.plot(self.server.work_dir, 0, -1, False)
+            self.wfile.write(img.getbuffer())
+        except Exception as e:
+            # We want to be sure that this does not cause any problems
+            # when having a long running training process.
+            logging.error('Could not print graph for web interface! {}'.format(e))
+            self.send_response(500)
+            return
 
     @staticmethod
     def plot(work_dir, lower_bound, upper_bound, show_progress_lines, smoothing=0.1):
+        """Returns a binary containing a plot of the current winrate."""
+        # Do the import here, as it allows playing slaves to function without a correct installation of
+        # the matplotlib. This is useful as the lib sometimes
+        import matplotlib.pyplot as plt
+
         x_scaling = 1 / 1000  # Show thousands on x axis
 
         progress = dist.TrainingRunProgress(os.path.join(work_dir, 'stats.json'))
