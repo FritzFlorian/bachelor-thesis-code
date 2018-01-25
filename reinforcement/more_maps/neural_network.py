@@ -12,7 +12,7 @@ BOARD_WIDTH = BOARD_SIZE
 N_RAW_VALUES = 4
 FLOAT = tf.float32
 
-L2_LOSS_WEIGHT = 0.001  # L2 loss is a quarter of before
+L2_LOSS_WEIGHT = 0.0015  # L2 loss is a quarter of before
 
 
 class SimpleNeuralNetwork(neural_network.NeuralNetwork):
