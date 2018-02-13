@@ -1,6 +1,6 @@
 import subprocess
 from reversi.game_core import Board
-from reversi.server import Server
+from reversi.network_core import Server
 import concurrent.futures
 import time
 import multiprocessing
@@ -17,7 +17,7 @@ class BinaryClient(Client):
         self.path = path
 
     def start(self, host, port):
-        subprocess.Popen([self.path, '-i', host, '-p', str(self.port)],
+        subprocess.Popen([self.path, '-i', host, '-p', str(port)],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 

@@ -7,11 +7,13 @@ The BasicClient and BasicServer classes wrap all functions needed
 to run a client/server, but do not include code for server specific control flow.
 They should be used to build up the actual client/server as well as
 altered implementations useful for gathering data."""
-from reversi.game_core import Board, Field, PLAYERS, DisqualifiedError
+from reversi.game_core import GameState, Board, Field, DisqualifiedError, PLAYERS
 import socket
 import logging
 import time
 import definitions
+import threading
+import random
 
 
 DEFAULT_PORT = definitions.REVERSI_MATCH_SERVER_DEFAULT_PORT
@@ -20,6 +22,7 @@ DEFAULT_HOST = definitions.REVERSI_MATCH_SERVER_DEFAULT_HOST
 MOVE_TIMEOUT = 5 * 60
 # Clients must answer basic request (not moves) in at most 10 seconds
 GENERAL_TIMEOUT = 10
+
 
 class BasicServer:
     """Basic ReversiXT Network Server. Use this to build your custom Server.
@@ -189,6 +192,192 @@ class BasicClient:
 
     def read_message(self):
         return read_message_from_conn(self.client)
+
+
+class Server(threading.Thread):
+    def __init__(self, board, time, depth, port=DEFAULT_PORT, group_to_player=None):
+        super().__init__()
+        self.logger = logging.getLogger("Server ({})".format(port))
+        self.game = GameState(board)
+        self.server = BasicServer(board, port)
+        self.time = time * 1000
+        self.depth = depth
+        self.group_to_player = group_to_player
+
+        self.times = dict()
+        for player in self.game.players:
+            self.times[player] = 0
+
+    def run(self):
+        self.server.start()
+
+        groups = []
+        for i in range(self.game.board.n_players):
+            self.logger.info("Waiting for {} more players to connect...".format(self.game.board.n_players - i))
+            groups.append(self.server.accept_client())
+
+        self.logger.info("All players connected, distributing maps and player numbers.")
+        if self.group_to_player:
+            for g, p in self.group_to_player.items():
+                self.server.set_player_for_group(g, p)
+        else:
+            for i in range(self.game.board.n_players):
+                self.server.set_player_for_group(groups[i], Field.PLAYER_ONE+ i)
+
+        self.logger.info("Starting Game")
+        self._game_loop()
+
+        self.server.stop()
+
+    def _game_loop(self):
+        while True:
+            was_in_bomb_phase = self.game.bomb_phase
+            next_moves = self.game.get_next_possible_moves()
+            if len(next_moves) == 0:
+                self._end_game()
+                return
+
+            if next_moves[0].bomb_phase != was_in_bomb_phase:
+                self.server.broadcast_message(EndPhaseOneMessage())
+
+            (player, _, _) = next_moves[0].last_move
+            self._let_player_move(player)
+
+            if len(self.game.players) <= 1:
+                self._end_game_disqualified()
+                return
+
+    def _let_player_move(self, player):
+        try:
+            self._inc_player_time(player)
+            self._send_move_request(player)
+
+            start_time = time.time()
+            self._process_move_answer(player)
+            move_time_in_ms = int((time.time() - start_time) * 1000)
+            self.times[player] = self.times[player] - move_time_in_ms
+            self.logger.info("Turn took {} ms".format(move_time_in_ms))
+
+            self._broadcast_last_move_notification()
+        except DisqualifiedError as err:
+            self._disqualify_player(player, err)
+
+    def _send_move_request(self, player):
+        self.logger.info("Send move request to player {} ({} ms,  depth {})."
+                         .format(player.value, self.times[player], self.depth))
+        move_request = MoveRequestMessage(self.times[player], self.depth)
+        self.server.send_player_message(player, move_request)
+
+    def _process_move_answer(self, player):
+        move_response = \
+            self.server.read_player_message(player, MoveResponseMessage, self.times[player]/1000)
+        self.logger.info("Player Move: ({}, {})".format(move_response.pos, move_response.choice))
+
+        self.game = self.game.execute_move(player, move_response.pos, move_response.choice)
+        if not self.game:
+            raise DisqualifiedError("Client send invalid move!", player)
+
+        self.logger.info(self.game.board.board_string())
+
+    def _broadcast_last_move_notification(self):
+        (player, pos, choice) = self.game.last_move
+        move_notification = MoveNotificationMessage(pos, choice, player)
+        self.server.broadcast_message(move_notification)
+
+    def _inc_player_time(self, player):
+        if self.times[player] < 0:
+            self.times[player] = 0
+        self.times[player] = self.times[player] + self.time
+
+    def _end_game_disqualified(self):
+        if not self.game.bomb_phase:
+            self.server.broadcast_message(EndPhaseOneMessage())
+        self.server.broadcast_message(EndPhaseTwoMessage())
+        self.logger.info("Everyone is disqualified, ending game...")
+
+    def _end_game(self):
+        self.server.broadcast_message(EndPhaseTwoMessage())
+        self.logger.info("No more moves, ending game...")
+
+    def _disqualify_player(self, player, err):
+        self.logger.info("Player {} Disqualified! {}".format(player, err))
+        self.game.disqualify_player(player)
+        self.server.broadcast_message(DisqualificationMessage(player))
+
+
+def run_server_example():
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+    board = Board("""\
+    2
+    0
+    2 0
+    6 6
+    0 0 0 0 0 0
+    0 0 0 0 0 0
+    0 0 1 2 0 0
+    0 0 2 1 0 0
+    0 0 0 0 0 0
+    0 0 0 0 0 0
+    """)
+
+    # Play actual game
+    server = Server(board, 0, 1)
+    server.start()
+    server.join()
+
+
+class Client(threading.Thread):
+    def __init__(self, group, find_move, host=DEFAULT_HOST, port=DEFAULT_PORT):
+        super().__init__()
+        self.logger = logging.getLogger("Client ({})".format(group))
+        self.client = BasicClient(group, host, port)
+        self.find_move = find_move
+        self.game = None
+
+    def run(self):
+        self.client.start()
+        self.game = GameState(self.client.board)
+
+        self._game_loop()
+        self.logger.info("Game Ended")
+
+        self.client.stop()
+
+    def _game_loop(self):
+        while True:
+            message = self.client.read_message()
+            if isinstance(message, EndPhaseTwoMessage):
+                return
+            elif isinstance(message, EndPhaseOneMessage):
+                self.game.bomb_phase = True
+                self.logger.info("Phase One Ended")
+            elif isinstance(message, MoveRequestMessage):
+                self.logger.info("Move Request from server ({}, {})".format(message.time_limit, message.depth_limit))
+                (player, pos, choice) = self.find_move(self.game, message.time_limit, message.depth_limit)
+                self.logger.info("Answer: {}, {}".format(pos, choice))
+                move_message = MoveResponseMessage(pos, choice)
+                self.client.send_message(move_message)
+            elif isinstance(message, DisqualificationMessage):
+                self.logger.info("Player {} Disqualified!".format(message.player))
+                self.game.disqualify_player(message.player)
+                if message.player == self.client.player:
+                    self.logger.info("Client was disqualified, shutting down...")
+                    return
+            elif isinstance(message, MoveNotificationMessage):
+                self.game = self.game.execute_move(message.player, message.pos, message.choice)
+
+
+def run_client_example():
+    logging.basicConfig(level=logging.INFO)
+
+    def find_move(game, time_limit, depth_limit):
+        possible = game.get_next_possible_moves()
+        return random.choice(possible).last_move
+
+    client = Client(14, find_move)
+    client.start()
+    client.join()
 
 
 def read_n_bytes(conn, n_bytes):
