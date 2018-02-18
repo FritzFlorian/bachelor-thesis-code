@@ -1,6 +1,6 @@
 import subprocess
 from reversi.game_core import Board
-from reversi.network_core import Server
+from reversi.network import Server
 import concurrent.futures
 import time
 import multiprocessing
