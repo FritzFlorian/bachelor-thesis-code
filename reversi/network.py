@@ -328,19 +328,31 @@ def run_server_example():
 
 
 class Client(threading.Thread):
-    def __init__(self, group, find_move, host=DEFAULT_HOST, port=DEFAULT_PORT):
+    def __init__(self, group, find_move, host=DEFAULT_HOST, port=DEFAULT_PORT,
+                 game_start_callback=None, game_end_callback=None, move_callback=None):
         super().__init__()
         self.logger = logging.getLogger("Client ({})".format(group))
         self.client = BasicClient(group, host, port)
+
         self.find_move = find_move
-        self.game = None
+        self.game_start_callback = game_start_callback
+        self.game_end_callback = game_end_callback
+        self.move_callback = move_callback
+
+        self.game_state = None
 
     def run(self):
         self.client.start()
-        self.game = GameState(self.client.board)
+        self.game_state = GameState(self.client.board)
+
+        if self.game_start_callback:
+            self.game_start_callback(self.game_state, self.client.player)
 
         self._game_loop()
         self.logger.info("Game Ended")
+
+        if self.game_end_callback:
+            self.game_end_callback(self.game_state)
 
         self.client.stop()
 
@@ -350,23 +362,26 @@ class Client(threading.Thread):
             if isinstance(message, EndPhaseTwoMessage):
                 return
             elif isinstance(message, EndPhaseOneMessage):
-                self.game.bomb_phase = True
+                self.game_state.bomb_phase = True
                 self.logger.info("Phase One Ended")
             elif isinstance(message, MoveRequestMessage):
                 self.logger.info("Move Request from server ({}, {})".format(message.time_limit, message.depth_limit))
-                (player, pos, choice) = self.find_move(self.game, message.time_limit, message.depth_limit)
+                (player, pos, choice) = self.find_move(self.game_state, message.time_limit, message.depth_limit)
                 self.logger.info("Answer: {}, {}".format(pos, choice))
                 move_message = MoveResponseMessage(pos, choice)
                 self.client.send_message(move_message)
             elif isinstance(message, DisqualificationMessage):
                 self.logger.info("Player {} Disqualified!".format(message.player))
-                self.game.disqualify_player(message.player)
+                self.game_state.disqualify_player(message.player)
                 if message.player == self.client.player:
                     self.logger.info("Client was disqualified, shutting down...")
                     return
             elif isinstance(message, MoveNotificationMessage):
-                self.game = self.game.execute_move(message.player, message.pos, message.choice)
+                old_game_state = self.game_state
+                self.game_state = self.game_state.execute_move(message.player, message.pos, message.choice)
 
+                if self.move_callback:
+                    self.move_callback(old_game_state, (message.player, message.pos, message.choice), self.game_state)
 
 def run_client_example():
     logging.basicConfig(level=logging.INFO)

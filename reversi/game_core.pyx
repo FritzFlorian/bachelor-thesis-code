@@ -250,7 +250,6 @@ class GameState:
         # and the neural network might learn to always play perfect ties, as this leads to the
         # biggest expected value for everyone (and as it's trained by selfplay, it can easily
         # achieve this, as every client is on page with this perfect game plan)
-        # TODO: Write about this in the thesis, it's an important point of game theory
         for rank, players in ranks.items():
             if len(players) == 0:
                 continue
