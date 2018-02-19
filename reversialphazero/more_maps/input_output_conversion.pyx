@@ -52,7 +52,7 @@ def input(evaluation, calculate_target=False):
 
     # Mark all possible moves in the last one hot layer
     for move, _ in normal_evaluation.probabilities.items():
-        x, y = move.iternal_tuple[1]
+        x, y = move.internal_tuple[1]
         input_array[y + embed_y, x + embed_x, -1] = 1
 
     if not calculate_target:
