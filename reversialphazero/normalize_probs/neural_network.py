@@ -9,7 +9,7 @@ BOARD_WIDTH = BOARD_SIZE
 
 # Number of different possible states/contents of a
 # single field on the board.
-N_RAW_VALUES = 4
+N_RAW_VALUES = 5
 FLOAT = tf.float32
 
 L2_LOSS_WEIGHT = 0.0015  # L2 loss is a quarter of before
