@@ -17,11 +17,14 @@ else:
 AI_TRIVIAL_AVAILABLE = os.path.isfile(AI_TRIVIAL_PATH)
 
 
+# NN Server Settings
 SELFPLAY_NN_SERVER_PORT = 5100
 SELFEVAL_NN_SERVER_PORT = 5101
 TRAINING_NN_SERVER_PORT = 5102
 
+# Distribution settings
 TRAINING_MASTER_PORT = 5200
+
 
 WEB_INTERFACE_PORT = 5300
 LOGGING_SERVER_PORT = 5301
@@ -39,3 +42,4 @@ SERVER_SECRET = os.path.join(PRIVATE_KEYS_DIR, 'server.key_secret')
 SERVER_PUBLIC = os.path.join(PUBLIC_KEYS_DIR, 'server.key')
 CLIENT_SECRET = os.path.join(PRIVATE_KEYS_DIR, 'client.key_secret')
 CLIENT_PUBLIC = os.path.join(PUBLIC_KEYS_DIR, 'client.key')
+
