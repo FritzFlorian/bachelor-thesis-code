@@ -12,7 +12,13 @@ BOARD_WIDTH = BOARD_SIZE
 N_RAW_VALUES = 5
 FLOAT = tf.float32
 
-L2_LOSS_WEIGHT = 0.0015  # L2 loss is a quarter of before
+L2_LOSS_WEIGHT = 0.0005
+
+# Changes
+# Less L2 Loss
+# Less dropout
+# Normalizing Probs and therefore less cpuct (1)
+# Add inversion
 
 
 class SimpleNeuralNetwork(neural_network.NeuralNetwork):
@@ -62,7 +68,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             # Add a fully connected hidden layer.
             prob_hidden = self._construct_dense_layer(flattered_prob_conv, BOARD_WIDTH * BOARD_HEIGHT, 'prob_hidden',
                                                       activation=tf.nn.tanh)
-            prob_hidden_dropout = tf.layers.dropout(prob_hidden, training=self.training)
+            prob_hidden_dropout = tf.layers.dropout(prob_hidden, training=self.training, rate=0.3)
             # Add a fully connected output layer.
             self.out_prob_logits = self._construct_dense_layer(prob_hidden_dropout, BOARD_WIDTH * BOARD_HEIGHT, 'prob_logits')
 
@@ -82,7 +88,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             # Add a fully connected hidden layer.
             value_hidden = self._construct_dense_layer(flattered_value_conv, BOARD_WIDTH * BOARD_HEIGHT, 'value_hidden',
                                                        activation=tf.nn.tanh)
-            value_hidden_dropout = tf.layers.dropout(value_hidden, training=self.training)
+            value_hidden_dropout = tf.layers.dropout(value_hidden, training=self.training, rate=0.3)
             # Add a fully connected output layer.
             value_scalar = self._construct_dense_layer(value_hidden_dropout, 1, 'value_output')
 

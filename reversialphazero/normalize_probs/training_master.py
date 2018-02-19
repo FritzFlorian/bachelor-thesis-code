@@ -14,9 +14,9 @@ command_line_interface.prepare_logger()
 
 def main():
     command_line_interface.parse_args()
-    command_line_interface.config._n_self_play = 70
+    command_line_interface.config._n_self_play = 77
     command_line_interface.config._n_ai_eval = 21
-    command_line_interface.config._n_self_eval = 0
+    command_line_interface.config._n_self_eval = 21
     command_line_interface.config._training_history_size = 200
     command_line_interface.config._batch_size = 200
     command_line_interface.config._c_puct = 1

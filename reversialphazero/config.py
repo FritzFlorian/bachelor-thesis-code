@@ -34,9 +34,9 @@ class CustomConfiguration(hometrainer.config.Configuration):
         self._c_puct = 3
 
         # Configure the number of concurrent search threads, 1 means no multithreading
-        self._n_search_threads_external_eval = 4
-        self._n_search_threads_self_eval = 4
-        self._n_search_threads_selfplay = 4
+        self._n_search_threads_external_eval = 8
+        self._n_search_threads_self_eval = 8
+        self._n_search_threads_selfplay = 8
 
     def external_evaluation_possible(self):
         return definitions.AI_TRIVIAL_AVAILABLE
