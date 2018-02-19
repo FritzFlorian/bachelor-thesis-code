@@ -10,12 +10,6 @@ NN_BOARD_SIZE = 12
 
 
 def input(evaluation, calculate_target=False):
-    cdef int nn_board_size, n_raw_values
-    cdef int embed_x, embed_y
-    cdef int y, x, field
-    cdef int empty_field, hole_field
-    cdef int BOARD_SIZE, MAX_TRANSLATION
-
     # Calculate on how much we can maximally translate the board.
     # We only accept square maps here!!!
     BOARD_SIZE = evaluation.game_state.original_game_state.board.width

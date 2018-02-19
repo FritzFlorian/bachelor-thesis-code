@@ -1,6 +1,6 @@
 import tensorflow as tf
 import hometrainer.neural_network as neural_network
-import reversialphazero.multiple_maps.input_output_conversion as input_output_conversion
+import reversialphazero.normalize_probs.input_output_conversion as input_output_conversion
 
 
 BOARD_SIZE = 12
