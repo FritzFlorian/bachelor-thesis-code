@@ -9,13 +9,13 @@ setup(
     author='Fritz Florian',
     license='MIT',
     packages=['hometrainer'],
+    dependency_links=['git+https://github.com/FritzFlorian/hometrainer.git@master'],
     install_requires=[
         'Cython',
         'matplotlib',
         'numpy',
         'pyzmq',
-        'tensorflow',
-        'hometrainer'
+        'tensorflow'
     ],
     zip_safe=False,
     ext_modules=cythonize(["reversi/**/*.pyx", "reversialphazero/**/*.pyx"])
