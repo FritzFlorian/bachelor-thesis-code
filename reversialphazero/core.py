@@ -41,6 +41,9 @@ class ReversiGameState(hometrainer.core.GameState):
     def wrap_in_evaluation(self):
         return ReversiEvaluation(self)
 
+    def get_virtual_loss(self):
+        return -0.5
+
 
 class ReversiEvaluation(hometrainer.core.Evaluation):
     def __init__(self, game_state: ReversiGameState):
