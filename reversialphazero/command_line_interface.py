@@ -214,7 +214,7 @@ class CommandLineInterface:
 
     def _execute_ai_client(self):
         print('Executing AI Client to play on match-server "{}:{}".'.format(self.host, self.port))
-        ai_client = AIClient(14, self.nn_class_name, self.weights_file, self.host, self.port)
+        ai_client = AIClient(14, self.nn_class_name, self.weights_file, self.host, self.port, self.config)
         ai_client.run()
 
     def _execute_training_master(self):

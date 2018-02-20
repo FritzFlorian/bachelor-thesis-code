@@ -14,6 +14,8 @@ elif platform.system() == 'Darwin':
 else:
     AI_TRIVIAL_PATH = os.path.join(ROOT_DIR, AI_TRIVIAL_PATH_UNIX)
 
+AI_JAVA_PATH = os.path.join(ROOT_DIR, 'bin/client.jar')
+
 AI_TRIVIAL_AVAILABLE = os.path.isfile(AI_TRIVIAL_PATH)
 
 

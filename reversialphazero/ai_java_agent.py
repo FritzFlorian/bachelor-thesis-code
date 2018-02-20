@@ -6,7 +6,7 @@ import reversi.tournament as tournament
 import definitions
 
 
-class AITrivialAgent(hometrainer.agents.Agent):
+class AIJavaAgent(hometrainer.agents.Agent):
     def __init__(self,time_bonus=200):
         self.time_bonus = time_bonus
 
@@ -30,7 +30,7 @@ class AITrivialAgent(hometrainer.agents.Agent):
                 found_port = False
                 print('Port Conflict, retry...')
 
-        tournament.TrivialAIClient(definitions.AI_TRIVIAL_PATH).start('localhost', port)
+        tournament.JavaClient(definitions.AI_JAVA_PATH).start('localhost', port)
         group = self.server.accept_client()
         self.server.set_player_for_group(group, player)
 

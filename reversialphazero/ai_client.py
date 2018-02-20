@@ -53,12 +53,13 @@ class AIClient:
 
     def _find_move(self, game_state, time_limit, depth_limit):
         game_state = reversialphazero.core.ReversiGameState(game_state)
+        time_limit = time_limit - 500  # Be sure to return in time...we remove 500ms from our time.
 
         if time_limit > 0:
-            return self.nn_agent.find_move_with_time_limit(game_state, round(time_limit / 1000))
+            return self.nn_agent.find_move_with_time_limit(game_state, round(time_limit / 1000)).internal_tuple
         else:
             # Make up some multiplier, as depth limit is different to our simulation limit
-            return self.nn_agent.find_move_with_iteration_limit(game_state, depth_limit * 50)
+            return self.nn_agent.find_move_with_iteration_limit(game_state, depth_limit * 50).internal_tuple
 
     def _move_executed(self, old_game_state, move, new_game_state):
         move = reversialphazero.core.ReversiMove(move)
