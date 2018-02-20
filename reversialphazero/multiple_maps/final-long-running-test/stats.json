@@ -1,0 +1,3044 @@
+{
+    "settings": {
+        "batch_size": 64,
+        "n_self_eval": 21,
+        "needed_avg_score": "0.05",
+        "n_self_play": 63,
+        "training_history_size": 200,
+        "turn_time": "1.0",
+        "simulations_per_turn": 128,
+        "n_ai_eval": 21
+    },
+    "progress": {
+        "iteration": 126,
+        "n_remaining": 14,
+        "current_batch": 14334000,
+        "state": "SELFPLAY"
+    },
+    "iterations": [
+        {
+            "self_eval": {
+                "start_batch": 45242,
+                "old_score": -16.0,
+                "new_better": true,
+                "new_score": 16.0,
+                "end_batch": 54866,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 54866,
+                "ai_score": 9.0,
+                "ai_stones": 725,
+                "nn_stones": 473,
+                "nn_score": -9.0,
+                "end_batch": 63611,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 45242,
+                "start_batch": 0,
+                "n_games": 49
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 768586,
+                "old_score": -5.0,
+                "new_better": true,
+                "new_score": 5.0,
+                "end_batch": 785288,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 785288,
+                "ai_score": 12.0,
+                "ai_stones": 1110,
+                "nn_stones": 686,
+                "nn_score": -12.0,
+                "end_batch": 795146,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 768586,
+                "start_batch": 63611,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 838525,
+                "old_score": -9.0,
+                "new_better": true,
+                "new_score": 9.0,
+                "end_batch": 855871,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 855871,
+                "ai_score": 11.0,
+                "ai_stones": 1089,
+                "nn_stones": 720,
+                "nn_score": -11.0,
+                "end_batch": 865025,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 838525,
+                "start_batch": 795147,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 900166,
+                "old_score": -13.0,
+                "new_better": true,
+                "new_score": 13.0,
+                "end_batch": 919785,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 919785,
+                "ai_score": 13.0,
+                "ai_stones": 1264,
+                "nn_stones": 917,
+                "nn_score": -13.0,
+                "end_batch": 928864,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 900166,
+                "start_batch": 865025,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 965029,
+                "old_score": -10.0,
+                "new_better": true,
+                "new_score": 10.0,
+                "end_batch": 982996,
+                "n_games": 42
+            },
+            "ai_eval": {
+                "start_batch": 982996,
+                "ai_score": 8.0,
+                "ai_stones": 859,
+                "nn_stones": 764,
+                "nn_score": -8.0,
+                "end_batch": 990753,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 965029,
+                "start_batch": 928864,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1027216,
+                "old_score": -1.0,
+                "new_better": true,
+                "new_score": 1.0,
+                "end_batch": 1044613,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1044613,
+                "ai_score": 11.0,
+                "ai_stones": 1176,
+                "nn_stones": 904,
+                "nn_score": -11.0,
+                "end_batch": 1054351,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1027216,
+                "start_batch": 990754,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1090284,
+                "old_score": 10.0,
+                "new_better": false,
+                "new_score": -10.0,
+                "end_batch": 1106101,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1106101,
+                "ai_score": 15.0,
+                "ai_stones": 1171,
+                "nn_stones": 855,
+                "nn_score": -15.0,
+                "end_batch": 1113889,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1090284,
+                "start_batch": 1054352,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1161526,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 1176264,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1176264,
+                "ai_score": 1.0,
+                "ai_stones": 1080,
+                "nn_stones": 953,
+                "nn_score": -1.0,
+                "end_batch": 1186445,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1161526,
+                "start_batch": 1113889,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1218140,
+                "old_score": 11.0,
+                "new_better": false,
+                "new_score": -11.0,
+                "end_batch": 1234703,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1234703,
+                "ai_score": 15.0,
+                "ai_stones": 1285,
+                "nn_stones": 828,
+                "nn_score": -15.0,
+                "end_batch": 1244313,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1218140,
+                "start_batch": 1186445,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1282094,
+                "old_score": 7.0,
+                "new_better": false,
+                "new_score": -7.0,
+                "end_batch": 1298727,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1298727,
+                "ai_score": 5.0,
+                "ai_stones": 1059,
+                "nn_stones": 964,
+                "nn_score": -5.0,
+                "end_batch": 1308875,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1282094,
+                "start_batch": 1244313,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1346414,
+                "old_score": 8.0,
+                "new_better": false,
+                "new_score": -8.0,
+                "end_batch": 1360560,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1360560,
+                "ai_score": 1.0,
+                "ai_stones": 1178,
+                "nn_stones": 1061,
+                "nn_score": -1.0,
+                "end_batch": 1367734,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1346414,
+                "start_batch": 1308875,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1402343,
+                "old_score": 5.0,
+                "new_better": false,
+                "new_score": -5.0,
+                "end_batch": 1418169,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1418169,
+                "ai_score": 16.0,
+                "ai_stones": 1297,
+                "nn_stones": 933,
+                "nn_score": -16.0,
+                "end_batch": 1428256,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1402343,
+                "start_batch": 1367735,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1464383,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 1477814,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1477814,
+                "ai_score": 23.0,
+                "ai_stones": 1284,
+                "nn_stones": 779,
+                "nn_score": -23.0,
+                "end_batch": 1489004,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1464383,
+                "start_batch": 1428256,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1523989,
+                "old_score": 9.0,
+                "new_better": false,
+                "new_score": -9.0,
+                "end_batch": 1539554,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1539554,
+                "ai_score": 9.0,
+                "ai_stones": 1286,
+                "nn_stones": 941,
+                "nn_score": -9.0,
+                "end_batch": 1550343,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1523989,
+                "start_batch": 1489004,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1583959,
+                "old_score": 10.0,
+                "new_better": false,
+                "new_score": -10.0,
+                "end_batch": 1602102,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1602102,
+                "ai_score": 7.0,
+                "ai_stones": 1078,
+                "nn_stones": 865,
+                "nn_score": -7.0,
+                "end_batch": 1610785,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1583959,
+                "start_batch": 1550343,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1644883,
+                "old_score": -8.0,
+                "new_better": true,
+                "new_score": 8.0,
+                "end_batch": 1661658,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1661658,
+                "ai_score": -3.0,
+                "ai_stones": 1233,
+                "nn_stones": 1210,
+                "nn_score": 3.0,
+                "end_batch": 1672155,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1644883,
+                "start_batch": 1610785,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1707362,
+                "old_score": 8.0,
+                "new_better": false,
+                "new_score": -8.0,
+                "end_batch": 1722966,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1722966,
+                "ai_score": 7.0,
+                "ai_stones": 1154,
+                "nn_stones": 1006,
+                "nn_score": -7.0,
+                "end_batch": 1732132,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1707362,
+                "start_batch": 1672156,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1762998,
+                "old_score": -2.0,
+                "new_better": true,
+                "new_score": 2.0,
+                "end_batch": 1782454,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1782454,
+                "ai_score": 11.0,
+                "ai_stones": 1258,
+                "nn_stones": 889,
+                "nn_score": -11.0,
+                "end_batch": 1788582,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1762998,
+                "start_batch": 1732133,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1822128,
+                "old_score": 3.0,
+                "new_better": false,
+                "new_score": -3.0,
+                "end_batch": 1842817,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 1842817,
+                "ai_score": 11.0,
+                "ai_stones": 1246,
+                "nn_stones": 882,
+                "nn_score": -11.0,
+                "end_batch": 1851613,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1822128,
+                "start_batch": 1788583,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1884981,
+                "old_score": -2.0,
+                "new_better": true,
+                "new_score": 2.0,
+                "end_batch": 1900634,
+                "n_games": 42
+            },
+            "ai_eval": {
+                "start_batch": 1900634,
+                "ai_score": -8.0,
+                "ai_stones": 750,
+                "nn_stones": 938,
+                "nn_score": 8.0,
+                "end_batch": 1910946,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 1884981,
+                "start_batch": 1851613,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 1944917,
+                "old_score": -9.0,
+                "new_better": true,
+                "new_score": 9.0,
+                "end_batch": 1963003,
+                "n_games": 35
+            },
+            "ai_eval": {
+                "start_batch": 1963003,
+                "ai_score": 1.0,
+                "ai_stones": 1166,
+                "nn_stones": 1193,
+                "nn_score": -1.0,
+                "end_batch": 1972181,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 1944917,
+                "start_batch": 1910946,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2009527,
+                "old_score": 3.0,
+                "new_better": true,
+                "new_score": -3.0,
+                "end_batch": 2025683,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2025683,
+                "ai_score": 13.0,
+                "ai_stones": 1322,
+                "nn_stones": 861,
+                "nn_score": -13.0,
+                "end_batch": 2034892,
+                "n_games": 35
+            },
+            "self_play": {
+                "end_batch": 2009527,
+                "start_batch": 1972181,
+                "n_games": 77
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2086823,
+                "old_score": -3.0,
+                "new_better": true,
+                "new_score": 3.0,
+                "end_batch": 2106943,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2106943,
+                "ai_score": 8.0,
+                "ai_stones": 994,
+                "nn_stones": 790,
+                "nn_score": -8.0,
+                "end_batch": 2119905,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 2086823,
+                "start_batch": 2034892,
+                "n_games": 70
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2172281,
+                "old_score": -2.0,
+                "new_better": true,
+                "new_score": 2.0,
+                "end_batch": 2190722,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2190722,
+                "ai_score": 4.0,
+                "ai_stones": 924,
+                "nn_stones": 819,
+                "nn_score": -4.0,
+                "end_batch": 2200690,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 2172281,
+                "start_batch": 2119905,
+                "n_games": 70
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2252746,
+                "old_score": -3.0,
+                "new_better": false,
+                "new_score": 3.0,
+                "end_batch": 2271983,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2271983,
+                "ai_score": 0.0,
+                "ai_stones": 1029,
+                "nn_stones": 838,
+                "nn_score": 0.0,
+                "end_batch": 2282313,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 2252746,
+                "start_batch": 2200690,
+                "n_games": 70
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2333663,
+                "old_score": -2.0,
+                "new_better": false,
+                "new_score": 2.0,
+                "end_batch": 2349693,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2349693,
+                "ai_score": 4.0,
+                "ai_stones": 823,
+                "nn_stones": 868,
+                "nn_score": -4.0,
+                "end_batch": 2359236,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 2333663,
+                "start_batch": 2282314,
+                "n_games": 70
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2407360,
+                "old_score": 0.0,
+                "new_better": false,
+                "new_score": 0.0,
+                "end_batch": 2425028,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2425028,
+                "ai_score": 6.0,
+                "ai_stones": 1037,
+                "nn_stones": 887,
+                "nn_score": -6.0,
+                "end_batch": 2435564,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 2407360,
+                "start_batch": 2359237,
+                "n_games": 70
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2487348,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 2503922,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2503922,
+                "ai_score": -6.0,
+                "ai_stones": 900,
+                "nn_stones": 957,
+                "nn_score": 6.0,
+                "end_batch": 2514863,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 2487348,
+                "start_batch": 2435564,
+                "n_games": 70
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2566158,
+                "old_score": 0.0,
+                "new_better": false,
+                "new_score": 0.0,
+                "end_batch": 2583145,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2583145,
+                "ai_score": -10.0,
+                "ai_stones": 817,
+                "nn_stones": 926,
+                "nn_score": 10.0,
+                "end_batch": 2592489,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 2566158,
+                "start_batch": 2514864,
+                "n_games": 70
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2640633,
+                "old_score": -4.0,
+                "new_better": true,
+                "new_score": 4.0,
+                "end_batch": 2659631,
+                "n_games": 28
+            },
+            "ai_eval": {
+                "start_batch": 2659631,
+                "ai_score": 12.0,
+                "ai_stones": 958,
+                "nn_stones": 832,
+                "nn_score": -12.0,
+                "end_batch": 2676026,
+                "n_games": 28
+            },
+            "self_play": {
+                "end_batch": 2640633,
+                "start_batch": 2592489,
+                "n_games": 70
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2775504,
+                "old_score": -5.0,
+                "new_better": true,
+                "new_score": 5.0,
+                "end_batch": 2801014,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 2801014,
+                "ai_score": 5.0,
+                "ai_stones": 668,
+                "nn_stones": 543,
+                "nn_score": -5.0,
+                "end_batch": 2815061,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 2775504,
+                "start_batch": 2676026,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 2899366,
+                "old_score": -8.0,
+                "new_better": true,
+                "new_score": 8.0,
+                "end_batch": 2924170,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 2924170,
+                "ai_score": 1.0,
+                "ai_stones": 669,
+                "nn_stones": 671,
+                "nn_score": -1.0,
+                "end_batch": 2939705,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 2899366,
+                "start_batch": 2815061,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 3025258,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 3053663,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 3053663,
+                "ai_score": -1.0,
+                "ai_stones": 717,
+                "nn_stones": 619,
+                "nn_score": 1.0,
+                "end_batch": 3067738,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 3025258,
+                "start_batch": 2939705,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 3155547,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 3186647,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 3186647,
+                "ai_score": -3.0,
+                "ai_stones": 579,
+                "nn_stones": 667,
+                "nn_score": 3.0,
+                "end_batch": 3200407,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 3155547,
+                "start_batch": 3067738,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 3291373,
+                "old_score": -8.0,
+                "new_better": true,
+                "new_score": 8.0,
+                "end_batch": 3317765,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 3317765,
+                "ai_score": -9.0,
+                "ai_stones": 599,
+                "nn_stones": 746,
+                "nn_score": 9.0,
+                "end_batch": 3332370,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 3291373,
+                "start_batch": 3200407,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 3415550,
+                "old_score": -5.0,
+                "new_better": true,
+                "new_score": 5.0,
+                "end_batch": 3438529,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 3438529,
+                "ai_score": 3.0,
+                "ai_stones": 622,
+                "nn_stones": 623,
+                "nn_score": -3.0,
+                "end_batch": 3452362,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 3415550,
+                "start_batch": 3332370,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 3547122,
+                "old_score": -5.0,
+                "new_better": true,
+                "new_score": 5.0,
+                "end_batch": 3572336,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 3572336,
+                "ai_score": -9.0,
+                "ai_stones": 654,
+                "nn_stones": 756,
+                "nn_score": 9.0,
+                "end_batch": 3586894,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 3547122,
+                "start_batch": 3452363,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 3664438,
+                "old_score": 7.0,
+                "new_better": false,
+                "new_score": -7.0,
+                "end_batch": 3692834,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 3692834,
+                "ai_score": -1.0,
+                "ai_stones": 628,
+                "nn_stones": 680,
+                "nn_score": 1.0,
+                "end_batch": 3706806,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 3664438,
+                "start_batch": 3586895,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 3803070,
+                "old_score": 5.0,
+                "new_better": false,
+                "new_score": -5.0,
+                "end_batch": 3833858,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 3833858,
+                "ai_score": -5.0,
+                "ai_stones": 560,
+                "nn_stones": 640,
+                "nn_score": 5.0,
+                "end_batch": 3847668,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 3803070,
+                "start_batch": 3706806,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 3933488,
+                "old_score": -4.0,
+                "new_better": true,
+                "new_score": 4.0,
+                "end_batch": 3960520,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 3960520,
+                "ai_score": 3.0,
+                "ai_stones": 673,
+                "nn_stones": 652,
+                "nn_score": -3.0,
+                "end_batch": 3975024,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 3933488,
+                "start_batch": 3847668,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 4058123,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 4085792,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 4085792,
+                "ai_score": -7.0,
+                "ai_stones": 603,
+                "nn_stones": 749,
+                "nn_score": 7.0,
+                "end_batch": 4100809,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 4058123,
+                "start_batch": 3975024,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 4188902,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 4213070,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 4213070,
+                "ai_score": -7.0,
+                "ai_stones": 628,
+                "nn_stones": 617,
+                "nn_score": 7.0,
+                "end_batch": 4226717,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 4188902,
+                "start_batch": 4100809,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 4317832,
+                "old_score": -10.0,
+                "new_better": true,
+                "new_score": 10.0,
+                "end_batch": 4344718,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 4344718,
+                "ai_score": -1.0,
+                "ai_stones": 549,
+                "nn_stones": 612,
+                "nn_score": 1.0,
+                "end_batch": 4357579,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 4317832,
+                "start_batch": 4226717,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 4442977,
+                "old_score": -6.0,
+                "new_better": true,
+                "new_score": 6.0,
+                "end_batch": 4466132,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 4466132,
+                "ai_score": 1.0,
+                "ai_stones": 729,
+                "nn_stones": 603,
+                "nn_score": -1.0,
+                "end_batch": 4480585,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 4442977,
+                "start_batch": 4357580,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 4566958,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 4594168,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 4594168,
+                "ai_score": -3.0,
+                "ai_stones": 636,
+                "nn_stones": 715,
+                "nn_score": 3.0,
+                "end_batch": 4608954,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 4566958,
+                "start_batch": 4480586,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 4701627,
+                "old_score": 6.0,
+                "new_better": false,
+                "new_score": -6.0,
+                "end_batch": 4732546,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 4732546,
+                "ai_score": 1.0,
+                "ai_stones": 637,
+                "nn_stones": 642,
+                "nn_score": -1.0,
+                "end_batch": 4746158,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 4701627,
+                "start_batch": 4608954,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 4837918,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 4862719,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 4862719,
+                "ai_score": -3.0,
+                "ai_stones": 656,
+                "nn_stones": 676,
+                "nn_score": 3.0,
+                "end_batch": 4877264,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 4837918,
+                "start_batch": 4746159,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 4963542,
+                "old_score": 7.0,
+                "new_better": false,
+                "new_score": -7.0,
+                "end_batch": 4990147,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 4990147,
+                "ai_score": 1.0,
+                "ai_stones": 617,
+                "nn_stones": 631,
+                "nn_score": -1.0,
+                "end_batch": 5003268,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 4963542,
+                "start_batch": 4877264,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 5097779,
+                "old_score": -2.0,
+                "new_better": true,
+                "new_score": 2.0,
+                "end_batch": 5121458,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 5121458,
+                "ai_score": -15.0,
+                "ai_stones": 551,
+                "nn_stones": 802,
+                "nn_score": 15.0,
+                "end_batch": 5137031,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 5097779,
+                "start_batch": 5003268,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 5215349,
+                "old_score": -3.0,
+                "new_better": true,
+                "new_score": 3.0,
+                "end_batch": 5243471,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 5243471,
+                "ai_score": -11.0,
+                "ai_stones": 503,
+                "nn_stones": 781,
+                "nn_score": 11.0,
+                "end_batch": 5256435,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 5215349,
+                "start_batch": 5137031,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 5348803,
+                "old_score": -6.0,
+                "new_better": true,
+                "new_score": 6.0,
+                "end_batch": 5372512,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 5372512,
+                "ai_score": -5.0,
+                "ai_stones": 515,
+                "nn_stones": 668,
+                "nn_score": 5.0,
+                "end_batch": 5385354,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 5348803,
+                "start_batch": 5256435,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 5475156,
+                "old_score": -4.0,
+                "new_better": true,
+                "new_score": 4.0,
+                "end_batch": 5500470,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 5500470,
+                "ai_score": -9.0,
+                "ai_stones": 604,
+                "nn_stones": 665,
+                "nn_score": 9.0,
+                "end_batch": 5515489,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 5475156,
+                "start_batch": 5385354,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 5602181,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 5626379,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 5626379,
+                "ai_score": -5.0,
+                "ai_stones": 544,
+                "nn_stones": 640,
+                "nn_score": 5.0,
+                "end_batch": 5639072,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 5602181,
+                "start_batch": 5515490,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 5731007,
+                "old_score": 4.0,
+                "new_better": false,
+                "new_score": -4.0,
+                "end_batch": 5756900,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 5756900,
+                "ai_score": -11.0,
+                "ai_stones": 631,
+                "nn_stones": 859,
+                "nn_score": 11.0,
+                "end_batch": 5772445,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 5731007,
+                "start_batch": 5639072,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 5862482,
+                "old_score": 6.0,
+                "new_better": false,
+                "new_score": -6.0,
+                "end_batch": 5894174,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 5894174,
+                "ai_score": -1.0,
+                "ai_stones": 610,
+                "nn_stones": 656,
+                "nn_score": 1.0,
+                "end_batch": 5908810,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 5862482,
+                "start_batch": 5772445,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 6000497,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 6024730,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 6024730,
+                "ai_score": -3.0,
+                "ai_stones": 680,
+                "nn_stones": 638,
+                "nn_score": 3.0,
+                "end_batch": 6038602,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 6000497,
+                "start_batch": 5908811,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 6126247,
+                "old_score": -3.0,
+                "new_better": true,
+                "new_score": 3.0,
+                "end_batch": 6157407,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 6157407,
+                "ai_score": -1.0,
+                "ai_stones": 716,
+                "nn_stones": 652,
+                "nn_score": 1.0,
+                "end_batch": 6172614,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 6126247,
+                "start_batch": 6038603,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 6258405,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 6284597,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 6284597,
+                "ai_score": -7.0,
+                "ai_stones": 649,
+                "nn_stones": 749,
+                "nn_score": 7.0,
+                "end_batch": 6300511,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 6258405,
+                "start_batch": 6172614,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 6380853,
+                "old_score": -3.0,
+                "new_better": true,
+                "new_score": 3.0,
+                "end_batch": 6409740,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 6409740,
+                "ai_score": -3.0,
+                "ai_stones": 622,
+                "nn_stones": 627,
+                "nn_score": 3.0,
+                "end_batch": 6422771,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 6380853,
+                "start_batch": 6300512,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 6509244,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 6536727,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 6536727,
+                "ai_score": -10.0,
+                "ai_stones": 582,
+                "nn_stones": 743,
+                "nn_score": 10.0,
+                "end_batch": 6550674,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 6509244,
+                "start_batch": 6422771,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 6637747,
+                "old_score": -6.0,
+                "new_better": true,
+                "new_score": 6.0,
+                "end_batch": 6661966,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 6661966,
+                "ai_score": -5.0,
+                "ai_stones": 582,
+                "nn_stones": 675,
+                "nn_score": 5.0,
+                "end_batch": 6675429,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 6637747,
+                "start_batch": 6550674,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 6759812,
+                "old_score": 5.0,
+                "new_better": false,
+                "new_score": -5.0,
+                "end_batch": 6784418,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 6784418,
+                "ai_score": -7.0,
+                "ai_stones": 583,
+                "nn_stones": 670,
+                "nn_score": 7.0,
+                "end_batch": 6798262,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 6759812,
+                "start_batch": 6675429,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 6889202,
+                "old_score": -12.0,
+                "new_better": true,
+                "new_score": 12.0,
+                "end_batch": 6915830,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 6915830,
+                "ai_score": -1.0,
+                "ai_stones": 662,
+                "nn_stones": 600,
+                "nn_score": 1.0,
+                "end_batch": 6929122,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 6889202,
+                "start_batch": 6798262,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 7009520,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 7036261,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 7036261,
+                "ai_score": -7.0,
+                "ai_stones": 518,
+                "nn_stones": 704,
+                "nn_score": 7.0,
+                "end_batch": 7050934,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 7009520,
+                "start_batch": 6929122,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 7139579,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 7164663,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 7164663,
+                "ai_score": -9.0,
+                "ai_stones": 584,
+                "nn_stones": 653,
+                "nn_score": 9.0,
+                "end_batch": 7177108,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 7139579,
+                "start_batch": 7050934,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 7258749,
+                "old_score": 0.0,
+                "new_better": false,
+                "new_score": 0.0,
+                "end_batch": 7285374,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 7285374,
+                "ai_score": -5.0,
+                "ai_stones": 619,
+                "nn_stones": 704,
+                "nn_score": 5.0,
+                "end_batch": 7299194,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 7258749,
+                "start_batch": 7177108,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 7386203,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 7413847,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 7413847,
+                "ai_score": -9.0,
+                "ai_stones": 575,
+                "nn_stones": 682,
+                "nn_score": 9.0,
+                "end_batch": 7427764,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 7386203,
+                "start_batch": 7299194,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 7513165,
+                "old_score": -7.0,
+                "new_better": true,
+                "new_score": 7.0,
+                "end_batch": 7538088,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 7538088,
+                "ai_score": -9.0,
+                "ai_stones": 569,
+                "nn_stones": 646,
+                "nn_score": 9.0,
+                "end_batch": 7551063,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 7513165,
+                "start_batch": 7427764,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 7630142,
+                "old_score": -2.0,
+                "new_better": true,
+                "new_score": 2.0,
+                "end_batch": 7653531,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 7653531,
+                "ai_score": -15.0,
+                "ai_stones": 539,
+                "nn_stones": 905,
+                "nn_score": 15.0,
+                "end_batch": 7669547,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 7630142,
+                "start_batch": 7551065,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 7755697,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 7781703,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 7781703,
+                "ai_score": -1.0,
+                "ai_stones": 619,
+                "nn_stones": 550,
+                "nn_score": 1.0,
+                "end_batch": 7793935,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 7755697,
+                "start_batch": 7669547,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 7881125,
+                "old_score": 4.0,
+                "new_better": false,
+                "new_score": -4.0,
+                "end_batch": 7906107,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 7906107,
+                "ai_score": -9.0,
+                "ai_stones": 556,
+                "nn_stones": 660,
+                "nn_score": 9.0,
+                "end_batch": 7919211,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 7881125,
+                "start_batch": 7793936,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 8002200,
+                "old_score": 8.0,
+                "new_better": false,
+                "new_score": -8.0,
+                "end_batch": 8033209,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 8033209,
+                "ai_score": -3.0,
+                "ai_stones": 600,
+                "nn_stones": 660,
+                "nn_score": 3.0,
+                "end_batch": 8046548,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 8002200,
+                "start_batch": 7919212,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 8138757,
+                "old_score": 3.0,
+                "new_better": false,
+                "new_score": -3.0,
+                "end_batch": 8164627,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 8164627,
+                "ai_score": -11.0,
+                "ai_stones": 689,
+                "nn_stones": 730,
+                "nn_score": 11.0,
+                "end_batch": 8180911,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 8138757,
+                "start_batch": 8046548,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 8266557,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 8292724,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 8292724,
+                "ai_score": -7.0,
+                "ai_stones": 558,
+                "nn_stones": 733,
+                "nn_score": 7.0,
+                "end_batch": 8307613,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 8266557,
+                "start_batch": 8180911,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 8391183,
+                "old_score": -6.0,
+                "new_better": true,
+                "new_score": 6.0,
+                "end_batch": 8414968,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 8414968,
+                "ai_score": -7.0,
+                "ai_stones": 626,
+                "nn_stones": 790,
+                "nn_score": 7.0,
+                "end_batch": 8429459,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 8391183,
+                "start_batch": 8307613,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 8508503,
+                "old_score": -6.0,
+                "new_better": true,
+                "new_score": 6.0,
+                "end_batch": 8534555,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 8534555,
+                "ai_score": -11.0,
+                "ai_stones": 456,
+                "nn_stones": 634,
+                "nn_score": 11.0,
+                "end_batch": 8546289,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 8508503,
+                "start_batch": 8429459,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 8624650,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 8649860,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 8649860,
+                "ai_score": -3.0,
+                "ai_stones": 578,
+                "nn_stones": 633,
+                "nn_score": 3.0,
+                "end_batch": 8662214,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 8624650,
+                "start_batch": 8546291,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 8751246,
+                "old_score": 0.0,
+                "new_better": false,
+                "new_score": 0.0,
+                "end_batch": 8779442,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 8779442,
+                "ai_score": -9.0,
+                "ai_stones": 615,
+                "nn_stones": 757,
+                "nn_score": 9.0,
+                "end_batch": 8795188,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 8751246,
+                "start_batch": 8662214,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 8882532,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 8907263,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 8907263,
+                "ai_score": -11.0,
+                "ai_stones": 563,
+                "nn_stones": 846,
+                "nn_score": 11.0,
+                "end_batch": 8922464,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 8882532,
+                "start_batch": 8795188,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9003976,
+                "old_score": 7.0,
+                "new_better": false,
+                "new_score": -7.0,
+                "end_batch": 9024047,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9024047,
+                "ai_score": -7.0,
+                "ai_stones": 586,
+                "nn_stones": 686,
+                "nn_score": 7.0,
+                "end_batch": 9037352,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9003976,
+                "start_batch": 8922464,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9118786,
+                "old_score": -3.0,
+                "new_better": true,
+                "new_score": 3.0,
+                "end_batch": 9139827,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9139827,
+                "ai_score": -9.0,
+                "ai_stones": 613,
+                "nn_stones": 713,
+                "nn_score": 9.0,
+                "end_batch": 9154092,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9118786,
+                "start_batch": 9037352,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9233405,
+                "old_score": 0.0,
+                "new_better": false,
+                "new_score": 0.0,
+                "end_batch": 9261776,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9261776,
+                "ai_score": -7.0,
+                "ai_stones": 572,
+                "nn_stones": 839,
+                "nn_score": 7.0,
+                "end_batch": 9276847,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9233405,
+                "start_batch": 9154092,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9354703,
+                "old_score": -9.0,
+                "new_better": true,
+                "new_score": 9.0,
+                "end_batch": 9380715,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9380715,
+                "ai_score": 1.0,
+                "ai_stones": 613,
+                "nn_stones": 536,
+                "nn_score": -1.0,
+                "end_batch": 9392463,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9354703,
+                "start_batch": 9276847,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9473254,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 9497449,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9497449,
+                "ai_score": -9.0,
+                "ai_stones": 490,
+                "nn_stones": 706,
+                "nn_score": 9.0,
+                "end_batch": 9511025,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9473254,
+                "start_batch": 9392464,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9594998,
+                "old_score": -7.0,
+                "new_better": true,
+                "new_score": 7.0,
+                "end_batch": 9619929,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9619929,
+                "ai_score": -5.0,
+                "ai_stones": 609,
+                "nn_stones": 663,
+                "nn_score": 5.0,
+                "end_batch": 9633682,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9594998,
+                "start_batch": 9511025,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9717387,
+                "old_score": -4.0,
+                "new_better": true,
+                "new_score": 4.0,
+                "end_batch": 9736661,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9736661,
+                "ai_score": -5.0,
+                "ai_stones": 559,
+                "nn_stones": 609,
+                "nn_score": 5.0,
+                "end_batch": 9748328,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9717387,
+                "start_batch": 9633682,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9825231,
+                "old_score": 7.0,
+                "new_better": false,
+                "new_score": -7.0,
+                "end_batch": 9849849,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9849849,
+                "ai_score": -10.0,
+                "ai_stones": 534,
+                "nn_stones": 717,
+                "nn_score": 10.0,
+                "end_batch": 9862641,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9825231,
+                "start_batch": 9748328,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 9941721,
+                "old_score": -3.0,
+                "new_better": true,
+                "new_score": 3.0,
+                "end_batch": 9965235,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 9965235,
+                "ai_score": -7.0,
+                "ai_stones": 516,
+                "nn_stones": 741,
+                "nn_score": 7.0,
+                "end_batch": 9978338,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 9941721,
+                "start_batch": 9862641,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 10061459,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 10086504,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 10086504,
+                "ai_score": -9.0,
+                "ai_stones": 529,
+                "nn_stones": 719,
+                "nn_score": 9.0,
+                "end_batch": 10100523,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 10061459,
+                "start_batch": 9978338,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 10176255,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 10199792,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 10199792,
+                "ai_score": -13.0,
+                "ai_stones": 646,
+                "nn_stones": 820,
+                "nn_score": 13.0,
+                "end_batch": 10215458,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 10176255,
+                "start_batch": 10100523,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 10303688,
+                "old_score": 0.0,
+                "new_better": false,
+                "new_score": 0.0,
+                "end_batch": 10326158,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 10326158,
+                "ai_score": -9.0,
+                "ai_stones": 628,
+                "nn_stones": 776,
+                "nn_score": 9.0,
+                "end_batch": 10339838,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 10303688,
+                "start_batch": 10215459,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 10417820,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 10443071,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 10443071,
+                "ai_score": -7.0,
+                "ai_stones": 541,
+                "nn_stones": 686,
+                "nn_score": 7.0,
+                "end_batch": 10455970,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 10417820,
+                "start_batch": 10339838,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 10538697,
+                "old_score": 5.0,
+                "new_better": false,
+                "new_score": -5.0,
+                "end_batch": 10562181,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 10562181,
+                "ai_score": -5.0,
+                "ai_stones": 627,
+                "nn_stones": 722,
+                "nn_score": 5.0,
+                "end_batch": 10576340,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 10538697,
+                "start_batch": 10455971,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 10658048,
+                "old_score": -7.0,
+                "new_better": true,
+                "new_score": 7.0,
+                "end_batch": 10683940,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 10683940,
+                "ai_score": 3.0,
+                "ai_stones": 549,
+                "nn_stones": 509,
+                "nn_score": -3.0,
+                "end_batch": 10694901,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 10658048,
+                "start_batch": 10576340,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 10778382,
+                "old_score": 7.0,
+                "new_better": false,
+                "new_score": -7.0,
+                "end_batch": 10804089,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 10804089,
+                "ai_score": -3.0,
+                "ai_stones": 567,
+                "nn_stones": 598,
+                "nn_score": 3.0,
+                "end_batch": 10815980,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 10778382,
+                "start_batch": 10694901,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 10895786,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 10914244,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 10914244,
+                "ai_score": -9.0,
+                "ai_stones": 600,
+                "nn_stones": 727,
+                "nn_score": 9.0,
+                "end_batch": 10927003,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 10895786,
+                "start_batch": 10815980,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11001911,
+                "old_score": 7.0,
+                "new_better": false,
+                "new_score": -7.0,
+                "end_batch": 11024828,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11024828,
+                "ai_score": -5.0,
+                "ai_stones": 612,
+                "nn_stones": 669,
+                "nn_score": 5.0,
+                "end_batch": 11038768,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11001911,
+                "start_batch": 10927004,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11120043,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 11148213,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11148213,
+                "ai_score": -9.0,
+                "ai_stones": 539,
+                "nn_stones": 695,
+                "nn_score": 9.0,
+                "end_batch": 11161273,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11120043,
+                "start_batch": 11038768,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11246721,
+                "old_score": 3.0,
+                "new_better": false,
+                "new_score": -3.0,
+                "end_batch": 11269120,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11269120,
+                "ai_score": -9.0,
+                "ai_stones": 601,
+                "nn_stones": 744,
+                "nn_score": 9.0,
+                "end_batch": 11282084,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11246721,
+                "start_batch": 11161274,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11359564,
+                "old_score": 5.0,
+                "new_better": false,
+                "new_score": -5.0,
+                "end_batch": 11380559,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11380559,
+                "ai_score": -11.0,
+                "ai_stones": 546,
+                "nn_stones": 751,
+                "nn_score": 11.0,
+                "end_batch": 11394085,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11359564,
+                "start_batch": 11282084,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11467348,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 11489621,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11489621,
+                "ai_score": -7.0,
+                "ai_stones": 611,
+                "nn_stones": 626,
+                "nn_score": 7.0,
+                "end_batch": 11501744,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11467348,
+                "start_batch": 11394085,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11575628,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 11601996,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11601996,
+                "ai_score": -11.0,
+                "ai_stones": 613,
+                "nn_stones": 818,
+                "nn_score": 11.0,
+                "end_batch": 11616809,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11575628,
+                "start_batch": 11501744,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11700434,
+                "old_score": 7.0,
+                "new_better": false,
+                "new_score": -7.0,
+                "end_batch": 11721868,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11721868,
+                "ai_score": -3.0,
+                "ai_stones": 646,
+                "nn_stones": 617,
+                "nn_score": 3.0,
+                "end_batch": 11734454,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11700434,
+                "start_batch": 11616809,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11818043,
+                "old_score": 10.0,
+                "new_better": false,
+                "new_score": -10.0,
+                "end_batch": 11840250,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11840250,
+                "ai_score": -5.0,
+                "ai_stones": 585,
+                "nn_stones": 759,
+                "nn_score": 5.0,
+                "end_batch": 11854553,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11818043,
+                "start_batch": 11734454,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 11928644,
+                "old_score": -5.0,
+                "new_better": true,
+                "new_score": 5.0,
+                "end_batch": 11951807,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 11951807,
+                "ai_score": -5.0,
+                "ai_stones": 570,
+                "nn_stones": 819,
+                "nn_score": 5.0,
+                "end_batch": 11966834,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 11928644,
+                "start_batch": 11854553,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12042494,
+                "old_score": -6.0,
+                "new_better": true,
+                "new_score": 6.0,
+                "end_batch": 12068790,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12068790,
+                "ai_score": -13.0,
+                "ai_stones": 514,
+                "nn_stones": 758,
+                "nn_score": 13.0,
+                "end_batch": 12082633,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12042494,
+                "start_batch": 11966834,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12162919,
+                "old_score": 11.0,
+                "new_better": false,
+                "new_score": -11.0,
+                "end_batch": 12187510,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12187510,
+                "ai_score": -11.0,
+                "ai_stones": 567,
+                "nn_stones": 614,
+                "nn_score": 11.0,
+                "end_batch": 12200006,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12162919,
+                "start_batch": 12082633,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12272746,
+                "old_score": -6.0,
+                "new_better": true,
+                "new_score": 6.0,
+                "end_batch": 12297510,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12297510,
+                "ai_score": -3.0,
+                "ai_stones": 625,
+                "nn_stones": 652,
+                "nn_score": 3.0,
+                "end_batch": 12311266,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12272746,
+                "start_batch": 12200007,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12393703,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 12417468,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12417468,
+                "ai_score": -7.0,
+                "ai_stones": 583,
+                "nn_stones": 668,
+                "nn_score": 7.0,
+                "end_batch": 12429957,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12393703,
+                "start_batch": 12311266,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12518432,
+                "old_score": 0.0,
+                "new_better": false,
+                "new_score": 0.0,
+                "end_batch": 12538287,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12538287,
+                "ai_score": -1.0,
+                "ai_stones": 575,
+                "nn_stones": 516,
+                "nn_score": 1.0,
+                "end_batch": 12549454,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12518432,
+                "start_batch": 12429957,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12633330,
+                "old_score": 6.0,
+                "new_better": false,
+                "new_score": -6.0,
+                "end_batch": 12656009,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12656009,
+                "ai_score": -3.0,
+                "ai_stones": 586,
+                "nn_stones": 590,
+                "nn_score": 3.0,
+                "end_batch": 12667639,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12633330,
+                "start_batch": 12549454,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12748285,
+                "old_score": -3.0,
+                "new_better": true,
+                "new_score": 3.0,
+                "end_batch": 12771563,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12771563,
+                "ai_score": -7.0,
+                "ai_stones": 524,
+                "nn_stones": 724,
+                "nn_score": 7.0,
+                "end_batch": 12784067,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12748285,
+                "start_batch": 12667639,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12859159,
+                "old_score": 6.0,
+                "new_better": false,
+                "new_score": -6.0,
+                "end_batch": 12882000,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12882000,
+                "ai_score": -3.0,
+                "ai_stones": 530,
+                "nn_stones": 671,
+                "nn_score": 3.0,
+                "end_batch": 12894328,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12859159,
+                "start_batch": 12784067,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 12967358,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 12990885,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 12990885,
+                "ai_score": -13.0,
+                "ai_stones": 546,
+                "nn_stones": 806,
+                "nn_score": 13.0,
+                "end_batch": 13004278,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 12967358,
+                "start_batch": 12894328,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 13084341,
+                "old_score": 9.0,
+                "new_better": false,
+                "new_score": -9.0,
+                "end_batch": 13110383,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 13110383,
+                "ai_score": -11.0,
+                "ai_stones": 555,
+                "nn_stones": 691,
+                "nn_score": 11.0,
+                "end_batch": 13122518,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 13084341,
+                "start_batch": 13004278,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 13198247,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 13218657,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 13218657,
+                "ai_score": -7.0,
+                "ai_stones": 580,
+                "nn_stones": 636,
+                "nn_score": 7.0,
+                "end_batch": 13229933,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 13198247,
+                "start_batch": 13122519,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 13310417,
+                "old_score": -3.0,
+                "new_better": true,
+                "new_score": 3.0,
+                "end_batch": 13333977,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 13333977,
+                "ai_score": -7.0,
+                "ai_stones": 566,
+                "nn_stones": 704,
+                "nn_score": 7.0,
+                "end_batch": 13348313,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 13310417,
+                "start_batch": 13229933,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 13422957,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 13443103,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 13443103,
+                "ai_score": -11.0,
+                "ai_stones": 602,
+                "nn_stones": 721,
+                "nn_score": 11.0,
+                "end_batch": 13455770,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 13422957,
+                "start_batch": 13348313,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 13542744,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 13568600,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 13568600,
+                "ai_score": -7.0,
+                "ai_stones": 561,
+                "nn_stones": 710,
+                "nn_score": 7.0,
+                "end_batch": 13581089,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 13542744,
+                "start_batch": 13455770,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 13659353,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 13682807,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 13682807,
+                "ai_score": -3.0,
+                "ai_stones": 636,
+                "nn_stones": 667,
+                "nn_score": 3.0,
+                "end_batch": 13695928,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 13659353,
+                "start_batch": 13581089,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 13774120,
+                "old_score": 2.0,
+                "new_better": false,
+                "new_score": -2.0,
+                "end_batch": 13797818,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 13797818,
+                "ai_score": 3.0,
+                "ai_stones": 639,
+                "nn_stones": 623,
+                "nn_score": -3.0,
+                "end_batch": 13809680,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 13774120,
+                "start_batch": 13695928,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 13889241,
+                "old_score": -1.0,
+                "new_better": false,
+                "new_score": 1.0,
+                "end_batch": 13912477,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 13912477,
+                "ai_score": -1.0,
+                "ai_stones": 603,
+                "nn_stones": 633,
+                "nn_score": 1.0,
+                "end_batch": 13924640,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 13889241,
+                "start_batch": 13809680,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 14005703,
+                "old_score": 1.0,
+                "new_better": false,
+                "new_score": -1.0,
+                "end_batch": 14032185,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 14032185,
+                "ai_score": -7.0,
+                "ai_stones": 606,
+                "nn_stones": 717,
+                "nn_score": 7.0,
+                "end_batch": 14044570,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 14005703,
+                "start_batch": 13924640,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 14122990,
+                "old_score": -7.0,
+                "new_better": true,
+                "new_score": 7.0,
+                "end_batch": 14148053,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 14148053,
+                "ai_score": -9.0,
+                "ai_stones": 605,
+                "nn_stones": 644,
+                "nn_score": 9.0,
+                "end_batch": 14160701,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 14122990,
+                "start_batch": 14044571,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 14235223,
+                "old_score": -8.0,
+                "new_better": true,
+                "new_score": 8.0,
+                "end_batch": 14262685,
+                "n_games": 21
+            },
+            "ai_eval": {
+                "start_batch": 14262685,
+                "ai_score": -8.0,
+                "ai_stones": 571,
+                "nn_stones": 731,
+                "nn_score": 8.0,
+                "end_batch": 14275414,
+                "n_games": 21
+            },
+            "self_play": {
+                "end_batch": 14235223,
+                "start_batch": 14160701,
+                "n_games": 63
+            }
+        },
+        {
+            "self_eval": {
+                "start_batch": 0,
+                "old_score": 0,
+                "new_better": false,
+                "new_score": 0,
+                "end_batch": 0,
+                "n_games": 0
+            },
+            "ai_eval": {
+                "start_batch": 0,
+                "ai_score": 0,
+                "ai_stones": 0,
+                "nn_stones": 0,
+                "nn_score": 0,
+                "end_batch": 0,
+                "n_games": 0
+            },
+            "self_play": {
+                "end_batch": 0,
+                "start_batch": 14275414,
+                "n_games": 49
+            }
+        }
+    ]
+}
