@@ -19,6 +19,4 @@ The following changes where applied.
 - Try to use the adam optimizer instead of momentum
     This should help to adapt the learning rate. I'm not sure if this will work well, as we do not
     have a classical supervised learning task, but it's worth a shot as it usually performs better
-    then the momentum optimizer.
-
-
+    then the momentum optimizer. -> It did not work at all (spikes in loss), so Momentum was used in the final run

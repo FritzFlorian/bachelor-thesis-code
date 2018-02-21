@@ -22,7 +22,7 @@ def main():
     init_nn(nn_client, config)
 
     ai_nn_client = hometrainer.agents.NeuralNetworkAgent(nn_client, config)
-    ai_trivial_client = reversialphazero.ai_trivial_agent.AITrivialAgent(time_bonus=0)
+    ai_java_client = reversialphazero.ai_java_agent.AIJavaAgent(time_bonus=0)
 
     with open('tournament.log', 'w') as log:
         def write_log(string):
@@ -36,10 +36,10 @@ def main():
             for name, game_state in known_start_game_states.items():
                 write_log('Start matches on map {}'.format(name))
                 for game in range(n_games):
-                    match_executor = hometrainer.executors.GameExecutor(game_state, [ai_nn_client, ai_trivial_client],
+                    match_executor = hometrainer.executors.GameExecutor(game_state, [ai_nn_client, ai_java_client],
                                                                         add_up_time=True)
                     results = match_executor.play_game(time_limit=time_limit)
-                    write_log('NN: {} vs Trivial: {}'.format(results[ai_nn_client], results[ai_trivial_client]))
+                    write_log('NN: {} vs Trivial: {}'.format(results[ai_nn_client], results[ai_java_client]))
 
         write_log('Start tests on unknown maps')
         for time_limit in time_limits:
@@ -47,10 +47,10 @@ def main():
             for name, game_state in unknown_start_game_states.items():
                 write_log('Start matches on map {}'.format(name))
                 for game in range(n_games):
-                    match_executor = hometrainer.executors.GameExecutor(game_state, [ai_nn_client, ai_trivial_client],
+                    match_executor = hometrainer.executors.GameExecutor(game_state, [ai_nn_client, ai_java_client],
                                                                         add_up_time=True)
                     results = match_executor.play_game(time_limit=time_limit)
-                    write_log('NN: {} vs Trivial: {}'.format(results[ai_nn_client], results[ai_trivial_client]))
+                    write_log('NN: {} vs Trivial: {}'.format(results[ai_nn_client], results[ai_java_client]))
 
     stop_nn(nn_client, config)
 
