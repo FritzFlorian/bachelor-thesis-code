@@ -24,8 +24,8 @@ import reversi.game_core
 
 def main():
     command_line_interface = CommandLineInterface('MAIN-CMD')
-    command_line_interface.prepare_logger()
     command_line_interface.parse_args()
+    command_line_interface.prepare_logger()
     command_line_interface.execute()
 
 

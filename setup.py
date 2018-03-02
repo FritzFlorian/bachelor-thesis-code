@@ -8,7 +8,7 @@ setup(
     url='bachelor-thesis-code',
     author='Fritz Florian',
     license='MIT',
-    packages=['hometrainer'],
+    packages=['reversi', 'reversialphazero'],
     install_requires=[
         'Cython',
         'matplotlib',
