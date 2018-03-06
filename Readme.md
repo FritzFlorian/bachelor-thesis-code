@@ -3,93 +3,6 @@
 This repository is a collection of the python code used during the bachelor
 thesis of florian fritz.
 
-Each subfolder can be seen as an individual module or experiment.
-
-The Readme documents in each subfolder are used as documentation for myself to be able
-to write/reason about what I did implement/test for the thesis.
-
-This Readme is a highlevel view on all experiments and tasks I did and it's main
-purpose is to make sure that I keep track of all tasks done in case I later intend to
-use findings from these tasks in my thesis.
-
-## Tasks/Experiments
-
-### 001_simple_12_by_12_experiment
-
-Goal was to train a model to predict stone counts after player one moved on a simple 
-12 by 12 standard reversi board.
-I was able to train a model that could predict possible moves very well.
-
-It showed that the size of the test set is very important to generalize.
-
-### Compile tensorflow for faster processing
-
-Compiled tensorflow from source because this is supposed to speed up some  operations.
-Improvement was only about 10%. It seems like the speed up is manly in special operations
-for image processing/detection problems.
-
-### Reversi - Game Core, Network Core, Tournament
-
-When working with the 001_simple_12_by_12_experiment it was very clear that I need an
-python implementation of reversi for both data gathering and the actual AI client later on.
-This is important as it it impractical to mix my legacy Java Client (from the ReversiXT course)
-with python code for the actual ML tasks.
-
-The reversi module contains all code needed to work with ReversiXT game states, interact with
-other clients/servers via the network protocol specific to the ReversiXT lecture, to generate training
-data and to evaluate training results in tournaments.
-
-This module will hopefully make future work on the project easier.
-
-
-### Expert Iteration/Pure Monte Carol Tree Search Reinforcement
-
-The simple_8_by_8 test should show how well the expert iteration presented in deepminds
-AlphaGoZero paper works on a simple 8 by 8 reversi board.
-
-The results where quite pleasing (see the final run stats.csv). The AI managed to learn
-to get about a 70 percent winrate against the trivial AI by pure selfplay.
-This was learning in about 6 hours of training on an laptop, so it was also fairly fast.
-
-The main point of this experiment was to get myself comfortable with the general
-algorithm and to make sure my implementation is bug free.
-
-
-### Speed up and restructure
-
-The simple 8 by 8 experiment showed that the slowest part is not the neural network training or execution,
-but the python code executing the moves. This is not very good, as under this circumstances adding a
-GPU would not significantly speed up the training progress, making it unfeasible slow for bigger test runs.
-
-This led to some research on how to speed up my python code.
-The first idea was to execute the non tensorflow code using pypy and pass neural network execution
-to an cpython process. This is necessary as tensorflow does not work with pypy.
-To make this separation quite some refactoring was required.
-Sadly pypy did not bring the desired speedup, as it is extremly slow when manually working with
-numpy arrays.
-
-Because of that Cython was tested as a further alternative to speed up the code.
-This was a success and gained about 50 percent in speed (after adding cython types to game core).
-
-The new code structure will be kept anyway, as it actually makes working with neural networks easier
-in the way I use them in this project.
-
-
-### Distributed 8 by 8
-
-The code was changed to allow one machine with a GPU to do the training and multiple other machines to do
-the selfplay games. This helps a lot, as with the current network size the selfplay is mainly the bottleneck,
-not the training (when a gpu is used).
-
-The change allowed to more then double the speed at which experiments can be run. The restructuring also
-helped a lot to make the code easier to maintain and therefore to more quickly test out new parameters/networks.
-
-After some tweaking and bug fixing the distributed 8 by 8 ran very smoothly on my laptop combined with my desktop pc.
-
-The results where also promising, showing a very strong play after about 15 hours of training.
-(see the final run for graphs/details)
-
-
 ## Installing/Running/Usage
 
 ### Installing
@@ -167,6 +80,60 @@ Follow these steps to start the one playing slave:
 Follow these steps to start tensorboard:
 - cd test
 - tensorboard --logdir tensorboard-logs
+
+
+### Command Line Interface
+
+You can run the command line interface to freely configure a run from the root project directory.
+Mostly this will not be used directly, but by the wrappers for single experiments shown above.
+The documentation is still interesting, as you can use all configurations in the wrappers for the experiments.
+
+```
+PYTHONPATH=./ python reversialphazero/command_line_interface.py -h
+usage: command_line_interface.py [-h] [-nn NN_CLASS_NAME]
+                                 [-d TRAINING_WORK_DIRECTORY]
+                                 [-ai [AI_CLIENT]] [-w AI_CLIENT_WEIGHTS]
+                                 [-i MATCH_HOST] [-p MATCH_PORT]
+                                 [-m [TRAINING_MASTER]] [-s [SELFPLAY_SLAVE]]
+                                 [-mi MASTER_HOST] [-mp MASTER_PORT]
+                                 [-tm TRAINING_MAPS_DIRECTORY]
+                                 [-ws [WEB_SERVER]]
+
+AI Client for Reversi. Allows playing games and training Clients.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -nn NN_CLASS_NAME, --nn-class-name NN_CLASS_NAME
+                        The Neural Network Subclass (full name) to use for
+                        this run
+  -d TRAINING_WORK_DIRECTORY, --training-work-directory TRAINING_WORK_DIRECTORY
+                        The directory to keep training progress
+  -ai [AI_CLIENT], --ai-client [AI_CLIENT]
+                        Set to true to run in AI client mode (to play a match)
+  -w AI_CLIENT_WEIGHTS, --ai-client-weights AI_CLIENT_WEIGHTS
+                        NN weights file to use for executing the AI client
+  -i MATCH_HOST, --match-host MATCH_HOST
+                        The hostname of the match/tournament server when
+                        executing the AI client
+  -p MATCH_PORT, --match-port MATCH_PORT
+                        The port of the match/tournament server when executing
+                        the AI client
+  -m [TRAINING_MASTER], --training-master [TRAINING_MASTER]
+                        Set to true to run as training master (performs
+                        training, depends on selfplay slaves)
+  -s [SELFPLAY_SLAVE], --selfplay-slave [SELFPLAY_SLAVE]
+                        Set to true to run as selfplay slave (runs selfplay
+                        games, reporst to a training master)
+  -mi MASTER_HOST, --master-host MASTER_HOST
+                        The hostname of the training master server
+  -mp MASTER_PORT, --master-port MASTER_PORT
+                        The port the training master runs on
+  -tm TRAINING_MAPS_DIRECTORY, --training-maps-directory TRAINING_MAPS_DIRECTORY
+                        The directory with all maps to be used for the
+                        training run
+  -ws [WEB_SERVER], --web-server [WEB_SERVER]
+                        Set to true to run a monitoring webinterface on port
+                        5300
 
 
 
