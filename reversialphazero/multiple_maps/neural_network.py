@@ -150,7 +150,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
             self.y_prob = tf.slice(self.y_combined, [0, 0], [-1,  n_fields])
             self.y_value = tf.slice(self.y_combined, [0, n_fields], [-1, 1])
 
-    def _construct_conv_layer(self, input, n_filters, name, kernel=[3, 3], stride=1, normalization=True, activation=None):
+    def _construct_conv_layer(self, input, n_filters, name, kernel=[3, 3], stride=1, activation=None):
         """Construct a convolutional layer with the given settings.
 
         Kernel, stride and a optional normalization layer can be configured."""
@@ -163,10 +163,8 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
                 padding="same",
                 activation=activation,
                 kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT))
-            if normalization:
-                return conv
 
-            return tf.layers.batch_normalization(conv, training=self.training)
+            return conv
 
     def _construct_residual_block(self, input, n_filters, name, dense_skip_input=[]):
         with tf.variable_scope(name):
