@@ -20,6 +20,7 @@ def main():
     command_line_interface.config._training_history_size = 200
     command_line_interface.config._batch_size = 200
     command_line_interface.config._c_puct = 1
+    command_line_interface.config._simulations_per_turn = 512  # 4 times the simulations per training run
     command_line_interface.execute()
 
 
