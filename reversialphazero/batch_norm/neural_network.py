@@ -17,7 +17,9 @@ L2_LOSS_WEIGHT = 0.0015
 # Changes
 # Everything like 'more_maps'
 # Probs are normalized in input/output conversion
-# Add batch-norm + ELU activation
+# Add batch-norm + ELU activation + HeInit
+
+INITIALIZER = tf.contrib.layers.variance_scaling_initializer(mode="FAN_AVG")  # He-Init
 
 
 class SimpleNeuralNetwork(neural_network.NeuralNetwork):
@@ -174,6 +176,7 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
                 strides=[stride, stride],
                 padding="same",
                 activation=activation,
+                kernel_initializer=INITIALIZER,
                 kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT))
             if not normalization:
                 return conv
@@ -193,7 +196,8 @@ class SimpleNeuralNetwork(neural_network.NeuralNetwork):
 
     def _construct_dense_layer(self, input, n_nodes, name, activation=None):
         return tf.layers.dense(input, n_nodes, name=name, activation=activation,
-                               kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT))
+                               kernel_regularizer=tf.contrib.layers.l2_regularizer(L2_LOSS_WEIGHT),
+                               kernel_initializer=INITIALIZER)
 
     def log_training_progress(self, sess, tf_file_writer, input_arrays, target_arrays, training_batch):
         # Get all the losses
