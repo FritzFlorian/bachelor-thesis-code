@@ -1,7 +1,8 @@
+import pyximport; pyximport.install()
 import unittest
 import socket
 import threading
-import reversi.network_core as network
+import reversi.network as network
 from reversi.game_core import Direction, Field, Board
 
 

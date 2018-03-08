@@ -1,3 +1,4 @@
+import pyximport; pyximport.install()
 import unittest
 from reversi.game_core import Board, Field, Direction, GameState
 
