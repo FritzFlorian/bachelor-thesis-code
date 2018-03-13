@@ -5,6 +5,10 @@ thesis of Florian Fritz. The goal is to train an ai for parts of the game
 ReversiXT using the AlphaZero algorithm.
 
 
+If there are any problems or questions with the project, please open an issue on github
+(https://github.com/FritzFlorian/bachelor-thesis-code/issues).
+
+
 ![sample test run](reversialphazero/more_maps/final-long-running-test/avg_score.png)
 
 
@@ -45,6 +49,13 @@ After the initial setup you will have to generate certificates for a secure netw
 - `python keys/generate_certificates.py`
 - Distribute the generated keys in the directory `keys` to all machines that should participate in the training
 - For more Information, see [the Readme in the keys directory](keys/Readme.md)
+
+
+To perform evaluation versus the trivial ai you will need to place the executable in the
+bin folder. Give it the correct name according to your operating system.
+- MacOSX: `ai_trivial_mac`
+- Unix: `ai_trivial`
+- Windows: `ai_trivial.exe`
 
 
 To run an experiment do the following:

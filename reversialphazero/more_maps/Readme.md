@@ -1,4 +1,4 @@
-# Changes
+# More Maps
 
 Next experiment after 'multiple_maps'.
 The following changes where applied.
@@ -14,9 +14,25 @@ The following changes where applied.
     help it learn more features.
 - Add the input-skip connections to the output
     This might further help to not 'waste' some of the connections to the fully connected layer
-    with figuring out correct moves.
+    with figuring out correct moves. (seems to make no big difference)
 - Increase Number of layers given to final fully connected layer
 - Try to use the adam optimizer instead of momentum
     This should help to adapt the learning rate. I'm not sure if this will work well, as we do not
     have a classical supervised learning task, but it's worth a shot as it usually performs better
     then the momentum optimizer. -> It did not work at all (spikes in loss), so Momentum was used in the final run
+- Batch size was increased from 64 to 200. This does not make too big of an difference, overall training should be
+    the same as the last runs.
+
+## Testrun
+
+The run took about 145 hours using three older PC's to play the games and one
+modern PC with a 1080 TI for training and also game execution.
+The test ran about 175 hours.
+
+
+## Results
+
+The results do not really differ from the last run,
+this suggests that the stagnating training progress was not due to the NN but because
+of settings for the Alpha Zero Tree Search.
+
