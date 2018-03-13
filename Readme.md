@@ -13,8 +13,8 @@ If there are any problems or questions with the project, please open an issue on
 
 
 The repository has two main modules:
--reversi: holds all ReversiXT game logic
--reversialphazero: holds training experiments and scripts to analyze them
+- reversi: holds all ReversiXT game logic
+- reversialphazero: holds training experiments and scripts to analyze them
 
 
 The main dependency, https://github.com/FritzFlorian/hometrainer, was also developed as part of
