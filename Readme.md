@@ -5,7 +5,7 @@ thesis of Florian Fritz. The goal is to train an ai for parts of the game
 ReversiXT using the AlphaZero algorithm.
 
 
-![sample test run](https://raw.githubusercontent.com/FritzFlorian/bachelor-thesis-code/master/reversialphazero/more_maps/final-long-running-test/avg_score.png)
+![sample test run](reversialphazero/more_maps/final-long-running-test/avg_score.png)
 
 
 The repository has two main modules:
