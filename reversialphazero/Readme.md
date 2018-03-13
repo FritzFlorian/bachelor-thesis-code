@@ -1,26 +1,74 @@
 # Pure Reinforcement Training
 
-This module implements the basic technique used in alpho go zero.
-It trains itself by using a reinforcement learning algorithm based on monte
-carlo tree search.
+This module uses the `hometrainer` and `reversi` modules and combines them to train
+an ai agent for parts of ReversiXT using the AlphaZero algorithm.
 
-It does not do any supervised learning, it is trained solely by selfplay.
 
-## Notes
+This module contains the 'glue' and helper scripts needed to run the actual training.
+The `command_line_interface.py` provides some convenience functions for the training.
+It allows to easily configure the training master, playing salve and an ai client for ReversiXT.
 
-### Game Scores
 
-Games can not be scored regarding standard reversi tournament rules.
-In a standard rules players are awarded the score of the higher rank if a tie occurred.
+All experiments are placed in subfolders. The experiments where run in the following order:
+- [simple_8_by_8](simple_8_by_8/Readme.md)
+- [distributed_8_by_8](distributed_8_by_8/Readme.md)
+- [multiple_maps](multiple_maps/Readme.md)
+- [normalize_probs](normalize_probs/Readme.md)
+- [batch_norm](batch_norm/Readme.md)
 
-Example:
-In a two player game usually the winner gets 25 points and the looser gets 11 points.
-If both have the same stone count both get 25 points.
+The experiments folders contain all configs for individual tests.
+The main files to look out for are `training_master.py` with general settings on the test,
+`neural_network.py` with the neural network structure and `input_output_conversion.py`
+with details on the boards encoding in the test. Also see the Readme files in the folders for more infos.
 
-This is a problem, as it destroys the zero-sum-game property.
-The AI could potentially learn in selfplay that it is the best strategy to always play for
-an perfect tie.
-This would work in the training phase, as it's only enemy is itself.
 
-Later on when playing against an external client this strategy will fall apart and
-the trained AI is quite useless.
+# Tests
+
+Here is a short summary of the tests that where run.
+
+## simple_8_by_8
+
+This test was the first successful run that actually lead to playing strength from the trained ai.
+This can be seen as a 'baseline' for further experiments. It was run sequentially without the distributed architecture.
+
+![simple_8_by_8 average scores](simple_8_by_8/run_final_8_by_8/avg_score.png)
+
+## distributed_8_by_8
+
+The next step was to run the same as the first test but with the distributed architecture.
+In this the 8x8 board is embedded into an 12x12 input to the network.
+
+![distributed_8_by_8 average scores](distributed_8_by_8/final_long_running_test/winrate.png)
+
+
+## multiple_maps
+
+This test uses 5 different maps to see if general strategies can be learned.
+It embeds maps from 8x8 up to 10x10 into an 12x12 input.
+
+![multiple_maps average scores](multiple_maps/final-long_running-test/avg_score.png)
+
+
+## more_maps
+
+This test uses more Filters, to see if this helps to improve playing strength.
+It uses 3 more maps then the last run, so 8 maps in total.
+
+![more_maps average scores](more_maps/final-long-running-test/avg_score.png)
+
+
+# normalize_probs
+
+In this test some changes are made to the output conversion. The output of the network is filtered so
+that only valid moves get part's of the move probability distribution.
+Also the extra rule of inversion stones is added. In total this test uses 13 maps.
+
+![normalize_probs average scores](normalize_probs/final-long-running-test/avg_scores.png)
+
+
+# batch_norm
+
+This test goes back to only the 5 maps of the 'multiple_maps' test.
+It makes big changes to the neural network. It now uses batch norm + elu activation.
+This test is still running, so there are no results to show here.
+The test will also record test vs training error, to allow further insights into the training process.
