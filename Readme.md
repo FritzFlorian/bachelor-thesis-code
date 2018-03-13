@@ -23,8 +23,8 @@ the [reversialphazero module](reversialphazero/Readme.md) can
 be found in the readme in their subfolders.
 
 
-Please follow the [Quick Start]{#quick-start} if you know python, pip and virtualenv.
-More details on specific installation steps can be found in the [troubleshooting]{#troubleshooting} section.
+Please follow the [Quick Start](#quick-start) if you know python, pip and virtualenv.
+More details on specific installation steps can be found in the [troubleshooting](#troubleshooting) section.
 
 ## Quick Start
 
@@ -44,7 +44,7 @@ Follow these steps to setup the repository:
 After the initial setup you will have to generate certificates for a secure network communication:
 - `python keys/generate_certificates.py`
 - Distribute the generated keys in the directory `keys` to all machines that should participate in the training
-- For more Information, see [the Readme in the keys directory]{keys/Readme.md}
+- For more Information, see [the Readme in the keys directory](keys/Readme.md)
 
 
 To run an experiment do the following:
@@ -94,7 +94,7 @@ you want to do that.
 ### Installing Dependencies
 
 The installation of the dependencies is usually done using the pip command line tool.
-[Quick Start]{#quick-start} lists the required dependencies.
+[Quick Start](#quick-start) lists the required dependencies.
 This should work fine on Unix/Mac, on Windows you might need to do the following:
 - Install numpy and scipy manually if needed:
     - Pre compiled libraries: https://www.lfd.uci.edu/~gohlke/pythonlibs/
