@@ -155,6 +155,9 @@ The following commands will do this:
 - `git pull`
 - `pip install hometrainer -U`
 
+When using tensorflow-gpu this update can cause issues. In case of errors try to uninstall both tensorflow
+and tensorflow-gpu and then reinstall tensorflow-gpu.
+
 
 ### Run the Project
 The main experiments that are run during the bachelor thesis can be found in the subdirectories
