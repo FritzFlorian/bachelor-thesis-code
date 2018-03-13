@@ -10,16 +10,16 @@ It allows to easily configure the training master, playing salve and an ai clien
 
 
 All experiments are placed in subfolders. The experiments where run in the following order:
-- [simple_8_by_8](simple_8_by_8/Readme.md)
-- [distributed_8_by_8](distributed_8_by_8/Readme.md)
-- [multiple_maps](multiple_maps/Readme.md)
-- [normalize_probs](normalize_probs/Readme.md)
-- [batch_norm](batch_norm/Readme.md)
+- [simple_8_by_8](#simple_8_by_8)
+- [distributed_8_by_8](#distributed_8_by_8)
+- [multiple_maps](#multiple_maps)
+- [normalize_probs](#normalize_probs)
+- [batch_norm](#batch_norm)
 
 The experiments folders contain all configs for individual tests.
 The main files to look out for are `training_master.py` with general settings on the test,
 `neural_network.py` with the neural network structure and `input_output_conversion.py`
-with details on the boards encoding in the test. Also see the Readme files in the folders for more infos.
+with details on the boards encoding in the test.
 
 
 # Tests
@@ -38,7 +38,7 @@ This can be seen as a 'baseline' for further experiments. It was run sequentiall
 The next step was to run the same as the first test but with the distributed architecture.
 In this the 8x8 board is embedded into an 12x12 input to the network.
 
-![distributed_8_by_8 average scores](distributed_8_by_8/final_long_running_test/winrate.png)
+![distributed_8_by_8 average scores](distributed_8_by_8/final-long-running-test/winrate.png)
 
 
 ## multiple_maps
@@ -46,7 +46,7 @@ In this the 8x8 board is embedded into an 12x12 input to the network.
 This test uses 5 different maps to see if general strategies can be learned.
 It embeds maps from 8x8 up to 10x10 into an 12x12 input.
 
-![multiple_maps average scores](multiple_maps/final-long_running-test/avg_score.png)
+![multiple_maps average scores](multiple_maps/final-long-running-test/avg_score.png)
 
 
 ## more_maps
