@@ -19,7 +19,7 @@ the thesis. It holds the code for the AlphaZero algorithm.
 
 The following sections will cover installing the project and running it.
 More details of both the [reversi module](reversi/Readme.md)and
-the [reversialphazero module](reversialphazero/Redame.md) can
+the [reversialphazero module](reversialphazero/Readme.md) can
 be found in the readme in their subfolders.
 
 
