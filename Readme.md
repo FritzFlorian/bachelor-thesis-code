@@ -7,6 +7,7 @@ ReversiXT using the AlphaZero algorithm.
 
 If there are any problems or questions with the project, please open an issue on github
 (https://github.com/FritzFlorian/bachelor-thesis-code/issues).
+Feel free to fork this repository or to take parts of the code for further work.
 
 
 ![sample test run](reversialphazero/more_maps/final-long-running-test/avg_score.png)
@@ -22,13 +23,13 @@ the thesis. It holds the code for the AlphaZero algorithm.
 
 
 The following sections will cover installing the project and running it.
-More details of both the [reversi module](reversi/Readme.md)and
+More details of both the [reversi module](reversi/Readme.md) and
 the [reversialphazero module](reversialphazero/Readme.md) can
 be found in the readme in their subfolders.
 
 
 Please follow the [Quick Start](#quick-start) if you know python, pip and virtualenv.
-More details on specific installation steps can be found in the [troubleshooting](#troubleshooting) section.
+More details on specific installation steps can be found in the [Troubleshooting](#troubleshooting) section.
 
 ## Quick Start
 
@@ -42,7 +43,7 @@ Follow these steps to setup the repository:
     - `pip install pyzmq`
     - `pip install tensorflow`
     - `pip install hometrainer`
-- optionally uninstall tensorflow and replace it with `tensorflow-gpu`
+- optionally uninstall `tensorflow` and replace it with `tensorflow-gpu`
 
 
 After the initial setup you will have to generate certificates for a secure network communication:
@@ -61,9 +62,13 @@ bin folder. Give it the correct name according to your operating system.
 To run an experiment do the following:
 - `cd project/reversialhpazero/experiment_name`
 - `PYTHONPATH=../../ python training_master.py`
-- `PYTHONPATH=../../ python playing_slave.py`
+- `PYTHONPATH=../../ python playing_slave.py -mi 127.0.0.1`
 
 Results of this run will be placed in an folder relative to the shell session called `test`.
+Both processes can be started/stopped whenever you want to. The training will continue at the
+point the training master was stopped as long as the content of the `test` folder are there.
+
+For optional parameters see [the command line parameter section](#command-line-interface).
 
 
 ## Troubleshooting
@@ -135,10 +140,13 @@ On Windows the simplest way is to just add the project directory to your PYTHONP
 If running the training master with GPU acceleration follow these instructions:
 - Install all needed CUDA drivers (as stated on the TF homepage, make sure to get the right ones),
   here are the current ones needed:
-    - Graphics Drivers http://www.nvidia.de/Download/index.aspx
-    - VS 2015 Community Edition: https://www.visualstudio.com/vs/older-downloads/
-    - Nvidia Toolkit 8: https://developer.nvidia.com/cuda-80-ga2-download-archive
-    - Nvidia cuDNN: https://developer.nvidia.com/rdp/cudnn-download
+    - The below links are the ones used for tensorflow 1.4.0, please visit https://www.tensorflow.org/install/
+      and follow  the official instructions to install tensorflow with gpu support.
+    - Config used in this work (tf 1.4.0):
+        - Graphics Drivers http://www.nvidia.de/Download/index.aspx
+        - VS 2015 Community Edition: https://www.visualstudio.com/vs/older-downloads/
+        - Nvidia Toolkit 8: https://developer.nvidia.com/cuda-80-ga2-download-archive
+        - Nvidia cuDNN: https://developer.nvidia.com/rdp/cudnn-download
 - Do not forget to set your PATH (also stated on the TF homepage)
     - Usually for CUDA: `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v8.0\bin`
     - And this: `C:\Users\YOURNAME\Documents\cudnn-8.0-windows10-x64-v6.0\cuda\bin`
@@ -188,6 +196,19 @@ Follow these steps to start the one playing slave:
 
 Follow these steps to start tensorboard:
     - `tensorboard --logdir test/tensorboard-logs`
+
+
+When everything is started you should be able to access tensorboard at
+`MASTER-IP:6006` and the webinterface of the training master at `MASTER-IP:5300`.
+These are the main tools to monitor training progress right now. It will take about an hour
+to show first results.
+
+
+To run the trained client in an ReversiXT match follow these instructions:
+- `cd reversialphazero/distributed_8_by_8`
+- `PYTHONPATH=../../ ai_client.py -i SERVER_IP -p SERVER_PORT`
+- both -i and -p are optional and will use the ReversiXT defaults
+- currently only one client can be executed at once on a system!
 
 
 ### Command Line Interface

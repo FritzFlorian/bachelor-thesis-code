@@ -31,7 +31,7 @@ To use it first create a 'Board' from a map string, then create a `GameState` fr
 
 ## network_core
 
-The `network_core` module contains a `BasicServer` and `BasicClient` class.
+The `network` module contains a `BasicServer` and `BasicClient` class.
 These should be used to build any more sophisticated server or client.
 
 Please see their respective docstrings for usage information.

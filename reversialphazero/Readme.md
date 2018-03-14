@@ -19,7 +19,12 @@ All experiments are placed in subfolders. The experiments where run in the follo
 The experiments folders contain all configs for individual tests.
 The main files to look out for are `training_master.py` with general settings on the test,
 `neural_network.py` with the neural network structure and `input_output_conversion.py`
-with details on the boards encoding in the test.
+with details on the boards encoding in the test. Some old tests might not work 100% as when they
+where executed to gather the statistics, as the general architecture of the project changed quite a bit.
+
+
+Please note that all maps that are used must be square to allow the transformations that are applied.
+If you want non square maps, simply embed them in bigger maps that are square.
 
 
 # Tests
@@ -30,13 +35,14 @@ Here is a short summary of the tests that where run.
 
 This test was the first successful run that actually lead to playing strength from the trained ai.
 This can be seen as a 'baseline' for further experiments. It was run sequentially without the distributed architecture.
+It runs on the simple 8x8 map and embeds it into an 8x8 input.
 
 ![simple_8_by_8 average scores](simple_8_by_8/run_final_8_by_8/avg_score.png)
 
 ## distributed_8_by_8
 
 The next step was to run the same as the first test but with the distributed architecture.
-In this the 8x8 board is embedded into an 12x12 input to the network.
+In this the 8x8 board is embedded into an 12x12 input for the network.
 
 ![distributed_8_by_8 average scores](distributed_8_by_8/final-long-running-test/winrate.png)
 
@@ -53,6 +59,7 @@ It embeds maps from 8x8 up to 10x10 into an 12x12 input.
 
 This test uses more Filters, to see if this helps to improve playing strength.
 It uses 3 more maps then the last run, so 8 maps in total.
+The more complex network did not make any difference.
 
 ![more_maps average scores](more_maps/final-long-running-test/avg_score.png)
 

@@ -3,6 +3,11 @@
 This test is run using the distributed architecture. It embeds a simple 8x8 board into
 an 12x12 input for the neural network (with random positions).
 
+- 8x8 board embedded in 12x12 input
+- 14 games versus external ai
+- 21 vs best weights, with 48 simulations
+- 42 selfplay games per iteration
+
 ## Hardware
 
 Training Master: Quad-Core i5 PC (4 Threads), GTX 760 Graphics

@@ -4,6 +4,12 @@ This experiment was used to understand the algorithm and to get all basic parts 
 The project structure changed a lot since this test, to run it you need to revert the repository
 or recreate the settings of this test with the new project structure.
 
+- 8x8 board embedded in 8x8 input
+- 21 selfplay games per iteration, 128 simulations of tree search per move
+- 2500 batches with 64 samples per training iteration
+- 21 games against best weights with 48 simulations
+- 21 games against external ai per iteration
+
 ## General Structure
 
 This first experiment executes the different phases of the training process serialized in different epochs.
