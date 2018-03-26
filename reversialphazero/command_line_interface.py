@@ -318,20 +318,26 @@ class LoggingClient:
 class MonitoringInterfaceHandler(BaseHTTPRequestHandler):
     # GET
     def do_GET(self):
-        if self.path == '/graph.png':
-            self._do_get_graph()
-        else:
-            self._do_get_default()
+        try:
+            if self.path == '/graph.png':
+                self._do_get_graph()
+            elif self.path in {'', '/', '/index.html', '/index'}:
+                self._do_get_default()
+            else:
+                self.send_text_response(404, 'Not Found')
+        except Exception as e:
+            self.send_text_response(500, 'Exception: {}'.format(e))
 
     def _do_get_default(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-
-        # Send message back to client
         log_messages = 'No Log Messages to Display'
         if self.server.output_log_file:
             log_messages = self.tail_file(self.server.output_log_file, 1000)
+
+        progress = distribution.TrainingRunProgress(os.path.join(self.server.work_dir, 'stats.json'))
+        progress.load_stats()
+
+        current_iteration = progress.stats.progress.iteration
+        n_games = hometrainer.util.count_files(os.path.join(self.server.work_dir, 'selfplay-data'))
 
         message = """
 <!DOCTYPE html>
@@ -340,6 +346,8 @@ class MonitoringInterfaceHandler(BaseHTTPRequestHandler):
         <textarea style='width: 100%; height: 500px;' id='log_textarea'>
 {}
         </textarea>
+        <p>Current iteration: {}</p>
+        <p>Number of selfplay games: {}</p>
         <img src='graph.png' style='width: 100%; height: auto; max-width: 1000px; margin: auto; display:block;'/>
         <script>
         (function() {{
@@ -349,10 +357,9 @@ class MonitoringInterfaceHandler(BaseHTTPRequestHandler):
         </script>
     </body>
 </html>
-""".format(log_messages)
+""".format(log_messages, current_iteration, n_games)
 
-        # Write content as utf-8 data
-        self.wfile.write(bytes(message, "utf8"))
+        self.send_text_response(200, message)
 
     def _do_get_graph(self):
         if not self.server.work_dir:
@@ -372,6 +379,13 @@ class MonitoringInterfaceHandler(BaseHTTPRequestHandler):
             logging.error('Could not print graph for web interface! {}'.format(e))
             self.send_response(500)
             return
+
+    def send_text_response(self, code, message):
+        self.send_response(code)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+
+        self.wfile.write(bytes(message, "utf8"))
 
     @staticmethod
     def tail_file(filename, nlines):
